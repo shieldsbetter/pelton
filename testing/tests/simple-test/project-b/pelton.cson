@@ -1,0 +1,9 @@
+dnsName: 'prj-b'
+
+environments: {
+    default: {
+        buildCommand: 'bash ../../../utils/build prj-b',
+        peltonDependencies: [],
+        printTerminalDependencies: 'node ../../../utils/template.mjs prj-b-terminal-deps.yaml'
+    }
+}

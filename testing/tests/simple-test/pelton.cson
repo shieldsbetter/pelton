@@ -1,0 +1,20 @@
+dnsName: 'simple-test'
+
+environments: {
+    default: {
+        buildCommand: 'bash ../../utils/build simple-test',
+
+        peltonDependencies: [
+            {
+                printProjectDirectory: 'echo project-a'
+            },
+            {
+                printProjectDirectory: 'echo project-b',
+                isolation: 'c'
+            }
+        ],
+
+        printTerminalDependencies: 'node ../../utils/template.mjs simple-test-terminal-deps.yaml',
+        podSelector: 'app=simple-test-${PELTON_RUN}-app'
+    }
+}

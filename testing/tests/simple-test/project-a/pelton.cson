@@ -1,0 +1,16 @@
+dnsName: 'prj-a'
+
+environments: {
+    default: {
+        buildCommand: 'bash ../../../utils/build prj-a',
+
+        variables: {
+            PRJ_A_FOO: 'project a foo value',
+            PRJ_A_BAR: 'project a bar value'
+        },
+
+        peltonDependencies: [],
+
+        printTerminalDependencies: 'node ../../../utils/template.mjs prj-a-terminal-deps.yaml'
+    }
+}
