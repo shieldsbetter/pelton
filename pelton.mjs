@@ -3,10 +3,14 @@
 import build from './steps/build.mjs';
 import cliclopts from 'cliclopts';
 import commandLevel from './utils/command-level.mjs';
+import generateServiceIngresses from './plugins/generate-service-ingresses.mjs';
+import getStdin from 'get-stdin';
+import inWindow from './utils/in-window.mjs';
 import manifest from './steps/manifest.mjs';
 import minimist from 'minimist';
 import pathLib from 'path';
 import start from './steps/start.mjs';
+import yamlLib from 'js-yaml';
 
 import { $ as zx } from 'zx';
 import { fileURLToPath } from 'url';
@@ -37,6 +41,11 @@ const manifestArgs = [
         abbr: 'n',
         help: 'namespace for target project resources',
         default: 'default'
+    },
+    {
+        name: 'plugin',
+        abbr: 'p',
+        help: 'command to further process manifest'
     }
 ];
 
@@ -54,28 +63,38 @@ async function main() {
             '[target-directory]',
             'build target and all dependencies', buildArgs,
             async (args, cliError) => {
-                const [targetDir = pwd, ...rest] = args._;
-
-                if (rest.length > 0) {
-                    throw cliError('Unexpected argument: ' + rest[0]);
+                if (args._.length > 1) {
+                    throw cliError('Unexpected argument: ' + args._[1]);
                 }
 
-                await build(targetDir, args.environment, args.isolation);
+                await buildStep(args);
             }
+        ],
+        extras: [
+            '<subcommand>',
+            'access useful extras', [],
+            (args, cliError) => commandLevel('extras', args._, {
+                plugins: [
+                    '<subcommand>',
+                    'access useful extra plugins', [],
+                    (args, cliError) => commandLevel('plugins', args._, {
+                        'generate-service-ingresses': [
+                            '', 'add ingress for each service', [],
+                            async (args, cliError) => {
+                                const input = await getStdin();
+                                console.log(await generateServiceIngresses(input));
+                            }
+                        ]
+                    })
+                ]
+            })
         ],
         manifest: [
             '[target-directory [...project-args]]',
             'generate k8s manifest for target and dependencies',
             manifestArgs,
             async (args, cliError) => {
-                const [targetDir = pwd, ...targetArgs] = args._;
-
-                const buildStepResults = await build(
-                        targetDir, args.environment, args.isolation);
-                const yaml = await manifest(targetDir, args.environment,
-                        args.isolation, buildStepResults, args.targetNamespace,
-                        targetArgs);
-
+                const { yaml } = await manifestStep(args);
                 console.log(yaml);
             }
         ],
@@ -84,19 +103,29 @@ async function main() {
             'start target with its dependencies',
             startArgs,
             async (args, cliError) => {
-                const [targetDir = pwd, ...targetArgs] = args._;
-
-                const buildResults = await build(targetDir, args.environment,
-                        args.isolation);
-                const yaml = await manifest(targetDir,
-                        args.environment, args.isolation, buildResults,
-                        args.targetNamespace,
-                        targetArgs);
-
-                await start(buildResults, args.targetNamespace, yaml);
+                const { yaml, buildStepResults } = await manifestStep(args);
+                await start(buildStepResults, args.targetNamespace, yaml);
             }
         ]
     });
+}
+
+async function buildStep(args) {
+    const [targetDir = pwd, ...rest] = args._;
+    return await build(targetDir, args.environment, args.isolation);
+}
+
+async function manifestStep(args) {
+    const buildStepResults = await buildStep(args);
+
+    const [targetDir = pwd, ...targetArgs] = args._;
+
+    return {
+        buildStepResults,
+        yaml: await manifest(targetDir, args.environment,
+            args.isolation, buildStepResults, args.targetNamespace,
+            args.plugin, targetArgs)
+    };
 }
 
 const alpha = 'abcdefghjkmnpqrstuvwxyz23456789';

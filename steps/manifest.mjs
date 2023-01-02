@@ -1,14 +1,15 @@
 import dzx from '../utils/dynamic-zx.mjs';
 import inDependencyOrder from '../utils/in-dependency-order.mjs';
 import inWindow from '../utils/in-window.mjs';
-import yaml from 'js-yaml';
+import yamlLib from 'js-yaml';
 import zxEnv from '../utils/zx-env.mjs';
 
 import { $ as zx } from 'zx';
 import { set } from 'lodash-es';
 
 export default async function manifest(targetDir, env = 'default', iso = 'a',
-        { results: buildResults, targetConfig, targetId }, targetNs, argv) {
+        { results: buildResults, targetConfig, targetId }, targetNs,
+        plugins, argv) {
     let stream = Promise.resolve();
 
     const resources = [];
@@ -63,7 +64,7 @@ export default async function manifest(targetDir, env = 'default', iso = 'a',
                     printManifest.stderr);
 
             try {
-                yaml.loadAll((await printManifest).stdout, resource => {
+                yamlLib.loadAll((await printManifest).stdout, resource => {
                     set(resource, 'metadata.namespace', namespace);
                     set(resource,
                             'metadata.labels.com-shieldsbetter-pelton-root-instance',
@@ -95,7 +96,25 @@ export default async function manifest(targetDir, env = 'default', iso = 'a',
         return stream;
     });
 
-    return resources.map(r => yaml.dump(r)).join('\n\n...\n---\n\n');
+    let yaml = resources.map(r => yamlLib.dump(r)).join('\n\n...\n---\n\n');
+    for (const pluginCmd of array(plugins)) {
+        const pluginRun = zx`echo ${yaml} | eval ${pluginCmd}`;
+        await inWindow(
+                `Plugin "${pluginCmd}"...`, pluginRun.stderr);
+        yaml = (await pluginRun).stdout;
+
+        try {
+            await yamlLib.loadAll(yaml);
+        }
+        catch (e) {
+            console.log(`Plugin "${pluginCmd}" generated bad yaml:\n`);
+            console.log(yaml);
+            console.log('\n' + e.message);
+            process.exit(1);
+        }
+    }
+
+    return yaml;
 }
 
 function annotate(r, o) {
@@ -106,6 +125,18 @@ function annotate(r, o) {
 
 function annotationKey(k) {
     return ['metadata', 'annotations', `com.shieldsbetter.pelton/${k}`];
+}
+
+function array(v) {
+    if (v === undefined) {
+        return [];
+    }
+
+    if (!Array.isArray(v)) {
+        return [v];
+    }
+
+    return v;
 }
 
 function toEnv(s) {

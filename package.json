@@ -17,6 +17,7 @@
     "chalk": "^5.2.0",
     "cliclopts": "^1.1.1",
     "cson": "^7.20.0",
+    "get-stdin": "^9.0.0",
     "js-yaml": "^4.1.0",
     "lodash-es": "^4.17.21",
     "log-update": "^5.0.1",
