@@ -8,7 +8,9 @@ Vagrant.configure("2") do |config|
 
     config.vm.network :forwarded_port, guest: 80, host: 8080
 
-    config.vm.provision "shell", inline: <<-SCRIPT
+    config.vm.provision "shell", env: {
+        "PELTON_VAGRANT_PACKAGING"=>ENV['PELTON_VAGRANT_PACKAGING']
+    }, inline: <<-SCRIPT
         apt-get update
 
         if ! which docker &>/dev/null; then
@@ -40,8 +42,11 @@ Vagrant.configure("2") do |config|
             sudo apt-get install -y nodejs
         fi
 
-        cd /vagrant
-        npm link
-
+        if [[ -n "$PELTON_VAGRANT_PACKAGING" ]]; then
+            npm install -g @shieldsbetter/pelton
+        else
+            cd /vagrant
+            npm link
+        fi
     SCRIPT
 end

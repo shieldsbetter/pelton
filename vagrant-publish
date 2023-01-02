@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -e
+
+if [[ -z "$VAGRANT_CLOUD_ACCESS_TOKEN" ]]; then
+    echo '$VAGRANT_CLOUD_ACCESS_TOKEN must be set'
+    exit 1
+fi
+
+VAGRANT_BOX_NAME=${BOX_NAME:-pelton22}
+VAGRANT_USER_NAME=${USER_NAME:-shieldsbetter}
+VAGRANT_BOX_VERSION=$(cat package.json | jq -r .version)
+
+FILE_NAME="$VAGRANT_BOX_NAME-$VAGRANT_BOX_VERSION.box"
+
+vagrant destroy --force
+
+export PELTON_VAGRANT_PACKAGING=yes
+vagrant up
+
+vagrant package --out "$FILE_NAME"
+
+UPLOAD_PATH=$(
+    curl "https://vagrantcloud.com/api/v1/box/$VAGRANT_USER_NAME/$VAGRANT_BOX_NAME/version/0.0.1/provider/virtualbox/upload?access_token=$VAGRANT_CLOUD_ACCESS_TOKEN" \
+    | jq -r .upload_Path)
+
+curl -X PUT --upload-file "$FILE_NAME" "$UPLOAD_PATH"
