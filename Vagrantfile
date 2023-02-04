@@ -32,6 +32,10 @@ Vagrant.configure("2") do |config|
                     > /home/vagrant/.bashrc
         fi
 
+        if ! grep 'KUBECTL_CMD' /etc/environment >/dev/null; then
+            echo 'KUBECTL_CMD=microk8s kubectl' > /etc/environment
+        fi
+
         if [[ -z "$(getent group docker)" ]]; then
             groupadd docker
         fi

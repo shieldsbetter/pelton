@@ -1,11 +1,11 @@
 import assert from 'assert';
 import walkDependencies from './walk-dependencies.mjs';
 
-export default async function inDependencyOrder(dir, env, iso, fn) {
+export default async function inDependencyOrder(dir, env, iso, services, fn) {
     const ongoing = {};
 
     let last;
-    await walkDependencies(dir, env, iso, {
+    await walkDependencies(dir, env, iso, services, {
         post: async (id, config, extras) => {
             assert(extras.dependencies.every(
                     ([dId]) => !!ongoing[JSON.stringify(dId)]));

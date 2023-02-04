@@ -1,5 +1,5 @@
 import yaml from 'js-yaml';
-import dzx from '../utils/dynamic-zx.mjs';
+import zxEnv from './zx-env.mjs';
 
 const kubectl = process.env.KUBECTL_CMD || 'kubectl';
 
@@ -9,7 +9,7 @@ export default async function peltonState() {
             let curConfig;
             try {
                 curConfig = yaml.load((
-                    await dzx`
+                    await zxEnv()`
                             ${() => kubectl} get configmap \
                             com-shieldsbetter-pelton-state -o yaml
                     `).stdout);
@@ -37,7 +37,7 @@ export default async function peltonState() {
         },
 
         async save() {
-            await dzx`echo ${yaml.dump({
+            await zxEnv()`echo ${yaml.dump({
                 apiVersion: 'v1',
                 kind: 'ConfigMap',
                 metadata: {

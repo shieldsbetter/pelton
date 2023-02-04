@@ -4,7 +4,7 @@
   "description": "",
   "main": "pelton.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "ava testing/tests/simple-test.mjs"
   },
   "bin": {
     "pelton": "./pelton.mjs"
@@ -24,5 +24,9 @@
     "minimist": "^1.2.7",
     "mustache": "^4.2.0",
     "zx": "^7.1.1"
+  },
+  "devDependencies": {
+    "ava": "^5.1.0",
+    "memfs": "^3.4.12"
   }
 }

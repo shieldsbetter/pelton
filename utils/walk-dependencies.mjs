@@ -1,30 +1,23 @@
 import cson from 'cson';
-import fs from 'fs/promises';
 import pathLib from 'path';
-import zxEnv from './zx-env.mjs';
+import ConfigError from './config-error.mjs';
 
-export default async function walk(dir, env, iso, fns, path = [], cache = {}) {
+export default async function walkDependencies(
+        dir, env, iso, services, fns, path = [], cache = {}) {
     const configFilename = pathLib.join(dir, 'pelton.cson');
-    const rawConfig = await fs.readFile(configFilename, 'utf8');
+    const rawConfig = await services.fs.readFileSync(configFilename, 'utf8');
     const config = cson.parse(rawConfig);
 
-    if (path.some(([dns, oEnv, oIso]) => dns === config.dnsName
-            && env === oEnv && iso === oIso)) {
-        const e = new Error('Circular pelton dependency: ' +
-                path.map(([dns, env, iso]) => `${dns}[${env}][${iso}]`)
-                .join(' --> '));
-        e.code = 'PELTON_CIRCULAR_DEPENDENCY';
-        throw e;
-    }
+    const instanceId = [config.dnsName, env, iso];
+    const stringifiedInstanceId = JSON.stringify(instanceId);
 
-    if (!cache[config.dnsName]) {
-        const instanceId = [config.dnsName, env, iso];
+    if (!cache[stringifiedInstanceId]) {
         const {
             pre = () => {},
             post = () => {}
         } = fns;
 
-        cache[config.dnsName] = {};
+        cache[stringifiedInstanceId] = {};
 
         await pre(instanceId, config, {
             dependencyPath: path,
@@ -32,20 +25,49 @@ export default async function walk(dir, env, iso, fns, path = [], cache = {}) {
             projectDirectory: dir
         });
 
+        if (!config.environments[env]) {
+            throw new ConfigError(
+                    'Requested environment not defined in "environments": '
+                    + env);
+        }
+
         const dependencies = [];
         for (const [ depName, depSpec ]
                 of Object.entries(config.environments[env].peltonDependencies)) {
+
             const depEnv = depSpec.environment || 'default';
-            const depIso =
-                    depSpec.isolation ? `${iso}-${depSpec.isolation}` : iso;
+            const depIso = depSpec.isolation || 'a';
 
-            const depDir =
-                    (await zxEnv(
-                        config.environments[env].variables || {}
-                    )`eval ${depSpec.printProjectDirectory}`).stdout.trim();
+            let depDir;
+            try {
+                depDir = (await services.executor(
+                    config.environments[env].variables || {}
+                ).eval(depSpec.printProjectDirectory).run()).stdout.trim();
+            }
+            catch (e) {
+                if ('stdout' in e) {
+                    const e2 = new ConfigError(`"environments.${env}[${depName}].printProjectDirectory" returned a non-zero exit code`);
+                    e2.appendParent(configFilename, instanceId.join('.'));
+                    throw e2;
+                }
+                else {
+                    throw e;
+                }
+            }
 
-            const depConfig = await walk(pathLib.join(dir, depDir),
-                    depEnv, depIso, fns, path.concat([instanceId]), cache);
+            let depConfig;
+            try {
+                depConfig = await walkDependencies(pathLib.join(dir, depDir),
+                        depEnv, depIso, services, fns,
+                        path.concat([instanceId]), cache);
+            }
+            catch (e) {
+                if (e instanceof ConfigError) {
+                    e.appendParent({ filename: configFilename, instanceId });
+                }
+
+                throw e;
+            }
 
             dependencies.push([
                 [depConfig.dnsName, depEnv, depIso],

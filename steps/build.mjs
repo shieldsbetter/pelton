@@ -1,17 +1,14 @@
 import inDependencyOrder from '../utils/in-dependency-order.mjs';
-import inWindow from '../utils/in-window.mjs';
-import zxEnv from '../utils/zx-env.mjs';
 
-import { $ as zx } from 'zx';
-
-export default async function build(targetDir, env = 'default', iso = 'a') {
+export default async function build(
+        targetDir, env = 'default', iso = 'a', services) {
     let stream = Promise.resolve();
 
     const results = {};
 
     let targetId;
     let targetConfig;
-    await inDependencyOrder(targetDir, env, iso,
+    await inDependencyOrder(targetDir, env, iso, services,
             (id, config, depRes, { dependencyPath, projectDirectory }) => {
 
         if (dependencyPath.length === 0) {
@@ -25,9 +22,9 @@ export default async function build(targetDir, env = 'default', iso = 'a') {
             return;
         }
 
-        const process = zxEnv(
+        const process = services.executor(
             config.environments[id[1]].variables || {}
-        )`cd ${projectDirectory} && eval ${buildCommand}`;
+        ).cd(projectDirectory).andThen().eval(buildCommand).run();
 
         process.stderr.pause();
 
@@ -35,7 +32,8 @@ export default async function build(targetDir, env = 'default', iso = 'a') {
             process.stderr.resume();
             const instanceLabel = (config.name || config.dnsName)
                     + ' > ' + id[1] + ' > ' + id[2];
-            await inWindow(`Building ${instanceLabel}...`, process.stderr);
+            await services.logTask(
+                    `Building ${instanceLabel}...`, process.stderr);
 
             results[JSON.stringify(id)] =
                     (await process).stdout.substring(-1000);

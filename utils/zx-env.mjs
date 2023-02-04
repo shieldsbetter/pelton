@@ -1,6 +1,6 @@
-import { $ as zx } from 'zx';
+import dzx from './dynamic-zx.mjs';
 
-export default function zxEnv(env) {
+export default function zxEnv(env = {}) {
     const envLiterals = [];
     const envQuoted = [];
 
@@ -13,6 +13,6 @@ export default function zxEnv(env) {
         const newLiterals = [...envLiterals, '\n' + literals[0], ...literals.slice(1)];
         const newToQuote = [...envQuoted, ...toQuote];
 
-        return zx(newLiterals, ...newToQuote);
+        return dzx(newLiterals, ...newToQuote);
     };
 }

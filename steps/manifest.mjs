@@ -1,20 +1,16 @@
-import dzx from '../utils/dynamic-zx.mjs';
 import inDependencyOrder from '../utils/in-dependency-order.mjs';
-import inWindow from '../utils/in-window.mjs';
 import yamlLib from 'js-yaml';
-import zxEnv from '../utils/zx-env.mjs';
 
-import { $ as zx } from 'zx';
 import { set } from 'lodash-es';
 
-export default async function manifest(targetDir, env = 'default', iso = 'a',
-        { results: buildResults, targetConfig, targetId }, targetNs,
-        plugins, argv) {
+export default async function manifest(targetDir, env = 'default',
+        iso = 'a', { results: buildResults, targetConfig, targetId }, targetNs,
+        plugins, argv, services) {
     let stream = Promise.resolve();
 
     const resources = [];
 
-    await inDependencyOrder(targetDir, env, iso,
+    await inDependencyOrder(targetDir, env, iso, services,
             (id, config, depRes,
                 { dependencies, dependencyPath, projectDirectory }) => {
         const printManifestCommand =
@@ -26,17 +22,17 @@ export default async function manifest(targetDir, env = 'default', iso = 'a',
 
         const envVars = {
             PELTON_BRES: buildResults[JSON.stringify(id)],
+            PELTON_ENVIRONMENT: id[1],
+            PELTON_ISOLATION: id[2],
             ...(config.environments[id[1]].variables || {})
         };
 
         for (let i = 0; i < dependencies.length; i++) {
             const [dDns, dEnv, dIso] = dependencies[i][0];
-            const relIsoSfx = iso === dIso ? '' :
-                    '_' + toEnv(dIso.substring(iso.length + 1));
 
             envVars[`PELTON_BRES_DEP_${i}`] =
                     buildResults[JSON.stringify(dependencies[i][0])];
-            envVars[`PELTON_BRES_${toEnv(dDns)}_${toEnv(dEnv)}${relIsoSfx}`] =
+            envVars[`PELTON_BRES_${toEnv(dDns)}_${toEnv(dEnv)}_${toEnv(dIso)}`] =
                     buildResults[JSON.stringify(dependencies[i][0])];
         }
 
@@ -50,9 +46,10 @@ export default async function manifest(targetDir, env = 'default', iso = 'a',
             namespace = `pltn-${tDns}-${tEnv}-${tIso}`;
         }
 
-        const printManifest = zxEnv(envVars)`
-            cd ${projectDirectory} && eval ${printManifestCommand}
-        `;
+        const printManifest = services.executor(envVars)
+                .cd(projectDirectory)
+                .andThen().eval(printManifestCommand)
+                .run();
 
         printManifest.stderr.pause();
 
@@ -60,7 +57,7 @@ export default async function manifest(targetDir, env = 'default', iso = 'a',
             printManifest.stderr.resume();
             const instanceLabel = (config.name || config.dnsName)
                     + ' > ' + id[1] + ' > ' + id[2];
-            await inWindow(`Generating ${instanceLabel} manifest...`,
+            await services.logTask(`Generating ${instanceLabel} manifest...`,
                     printManifest.stderr);
 
             try {
@@ -86,9 +83,9 @@ export default async function manifest(targetDir, env = 'default', iso = 'a',
                 });
             }
             catch (e) {
-                console.log((await printManifest).stdout);
-                console.log('\nError parsing above manifest:\n')
-                console.log(e.message);
+                console.error((await printManifest).stdout);
+                console.error('\nError parsing above manifest:\n')
+                console.error(e.message);
                 process.exit(1);
             }
         });
@@ -98,8 +95,8 @@ export default async function manifest(targetDir, env = 'default', iso = 'a',
 
     let yaml = resources.map(r => yamlLib.dump(r)).join('\n\n...\n---\n\n');
     for (const pluginCmd of array(plugins)) {
-        const pluginRun = zx`echo ${yaml} | eval ${pluginCmd}`;
-        await inWindow(
+        const pluginRun = services.executor().echo(yaml).pipe().eval(pluginCmd).run();
+        await services.logTask(
                 `Plugin "${pluginCmd}"...`, pluginRun.stderr);
         yaml = (await pluginRun).stdout;
 
@@ -107,9 +104,9 @@ export default async function manifest(targetDir, env = 'default', iso = 'a',
             await yamlLib.loadAll(yaml);
         }
         catch (e) {
-            console.log(`Plugin "${pluginCmd}" generated bad yaml:\n`);
-            console.log(yaml);
-            console.log('\n' + e.message);
+            console.error(`Plugin "${pluginCmd}" generated bad yaml:\n`);
+            console.error(yaml);
+            console.error('\n' + e.message);
             process.exit(1);
         }
     }

@@ -22,6 +22,6 @@ vagrant package --out "$FILE_NAME"
 
 UPLOAD_PATH=$(
     curl "https://vagrantcloud.com/api/v1/box/$VAGRANT_USER_NAME/$VAGRANT_BOX_NAME/version/0.0.1/provider/virtualbox/upload?access_token=$VAGRANT_CLOUD_ACCESS_TOKEN" \
-    | jq -r .upload_Path)
+    | jq -r .upload_path)
 
 curl -X PUT --upload-file "$FILE_NAME" "$UPLOAD_PATH"

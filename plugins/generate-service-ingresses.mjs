@@ -4,12 +4,6 @@ import { set } from 'lodash-es';
 
 const ingressAnnt = 'com.shieldsbetter.pelton/ingress';
 
-// Root project:
-//  annotation: :80,other:81
-//   -->
-//  <rootdns>-[suffix].localhost
-//  other-[suffix].localhost
-
 export default async function generateServiceIngresses(input) {
     const resources = await yaml.loadAll(input);
 
@@ -86,39 +80,4 @@ export default async function generateServiceIngresses(input) {
     }
 
     return resources.map(r => yaml.dump(r)).join('\n\n...\n---\n\n');
-}
-
-function crossDnsNames(a1, a2, separator = '-') {
-    const result = [];
-
-    for (const el1 of a1) {
-        for (const el2 of a2) {
-            if (el2 === '') {
-                result.push(el1);
-            }
-            else {
-                result.push(`${el1}${separator}${el2}`);
-            }
-        }
-    }
-
-    return result;
-}
-
-function buildHostnames(parent, root) {
-    function oneLevel(dns, env, iso) {
-        let result = [dns];
-        result = crossDnsNames(result,
-                env === 'default' ? ['default', ''] : [env]);
-        return crossDnsNames(result, iso === 'a' ? ['a', ''] : [iso]);
-    }
-
-    let result = oneLevel(...JSON.parse(parent));
-
-    if (parent !== root) {
-        const rootParts = oneLevel(...JSON.parse(root));
-        result = crossDnsNames(result, rootParts, '.');
-    }
-
-    return result;
 }
