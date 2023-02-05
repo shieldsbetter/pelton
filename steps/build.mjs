@@ -10,6 +10,7 @@ export default async function build(
     let targetConfig;
     await inDependencyOrder(targetDir, env, iso, services,
             (id, config, depRes, { dependencyPath, projectDirectory }) => {
+        services.debug(`### Building ${id}`);
 
         if (dependencyPath.length === 0) {
             targetId = id;
@@ -37,6 +38,8 @@ export default async function build(
 
             results[JSON.stringify(id)] =
                     (await process).stdout.substring(-1000);
+
+            services.debug(`### Done building ${id}`);
         });
 
         return stream;

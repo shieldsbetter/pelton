@@ -21,6 +21,11 @@ zx.verbose = false;
 
 const globalArgs = [
     {
+        name: 'debug',
+        help: 'turn on verbose debug logging',
+        boolean: true
+    },
+    {
         name: 'notty',
         help: 'disable fancy output',
         boolean: true
@@ -136,6 +141,9 @@ export default async function pelton(argv, services) {
 
                 const { yaml, buildStepResults } =
                         await manifestStep(args, services);
+
+                services.debug('# Start step');
+
                 await start(
                         buildStepResults, args.targetNamespace, yaml, args,
                         services);
@@ -145,11 +153,13 @@ export default async function pelton(argv, services) {
 }
 
 async function buildStep(args, services) {
+    services.debug('# Build step');
     const [targetDir = services.pwd, ...rest] = args._;
     return await build(targetDir, args.environment, args.isolation, services);
 }
 
 function instrumentServices(args, services) {
+    services.debug = args.debug ? console.log.bind(console) : (() => {});
     services.logTask = buildTaskLogger(services.stderr, !args.notty);
 
     return services;
@@ -157,6 +167,8 @@ function instrumentServices(args, services) {
 
 async function manifestStep(args, services) {
     const buildStepResults = await buildStep(args, services);
+
+    services.debug('# Manifest step');
 
     const [targetDir = services.pwd, ...targetArgs] = args._;
 

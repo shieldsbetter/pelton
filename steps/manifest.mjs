@@ -13,6 +13,9 @@ export default async function manifest(targetDir, env = 'default',
     await inDependencyOrder(targetDir, env, iso, services,
             (id, config, depRes,
                 { dependencies, dependencyPath, projectDirectory }) => {
+
+        services.debug(`### Creating manifest for ${id}`);
+
         const printManifestCommand =
                 config.environments[id[1]].printTerminalDependencies;
 
@@ -88,6 +91,8 @@ export default async function manifest(targetDir, env = 'default',
                 console.error(e.message);
                 process.exit(1);
             }
+
+            services.debug(`### Done creating manifest for ${id}`);
         });
 
         return stream;

@@ -11,7 +11,14 @@ export default async function walkDependencies(
     const instanceId = [config.dnsName, env, iso];
     const stringifiedInstanceId = JSON.stringify(instanceId);
 
-    if (!cache[stringifiedInstanceId]) {
+    if (cache[stringifiedInstanceId]) {
+        services.debug(`## Skipping ${pathToString(path.concat([instanceId]))}`
+                + ` in ${dir}. It was already activated above.`);
+    }
+    else {
+        services.debug(`## Processing `
+                + `${pathToString(path.concat([instanceId]))} in ${dir}`);
+
         const {
             pre = () => {},
             post = () => {}
@@ -81,7 +88,14 @@ export default async function walkDependencies(
             projects: cache,
             projectDirectory: dir
         });
+
+        services.debug(`## Done processing `
+                + `${pathToString(path.concat([instanceId]))}`);
     }
 
     return config;
+}
+
+function pathToString(p) {
+    return p.map(cs => cs.join('-')).join(' > ');
 }
