@@ -1,4 +1,5 @@
 import cliclopts from 'cliclopts';
+import fs from 'fs';
 import minimist from 'minimist';
 
 export default async function commandLevel(parentCommand, argv, commands) {
@@ -17,6 +18,9 @@ export default async function commandLevel(parentCommand, argv, commands) {
     }
     else if (argv[0] === '--help') {
         printCommands();
+    }
+    else if (argv[0] === '--version') {
+        console.log(JSON.parse(fs.readFileSync('package.json', 'utf8')).version);
     }
     else if (!commands[argv[0]]) {
         console.error('Unknown subcommand: ' + argv[0] + '.\n');

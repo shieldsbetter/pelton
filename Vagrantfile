@@ -11,7 +11,21 @@ Vagrant.configure("2") do |config|
     config.vm.provision "shell", env: {
         "PELTON_VAGRANT_PACKAGING"=>ENV['PELTON_VAGRANT_PACKAGING']
     }, inline: <<-SCRIPT
+        set -e
+
         apt-get update
+
+        if ! which node; then
+            curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+            sudo apt-get install -y nodejs
+        fi
+
+        if [[ -n "$PELTON_VAGRANT_PACKAGING" ]]; then
+            npm install -g "@shieldsbetter/pelton@$PELTON_VAGRANT_PACKAGING"
+        else
+            cd /vagrant
+            npm link
+        fi
 
         if ! which docker &>/dev/null; then
             curl -fsSL https://get.docker.com -o - | sh
@@ -40,17 +54,5 @@ Vagrant.configure("2") do |config|
             groupadd docker
         fi
         usermod -aG docker vagrant
-
-        if ! which node; then
-            curl -sL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-            sudo apt-get install -y nodejs
-        fi
-
-        if [[ -n "$PELTON_VAGRANT_PACKAGING" ]]; then
-            npm install -g @shieldsbetter/pelton
-        else
-            cd /vagrant
-            npm link
-        fi
     SCRIPT
 end
