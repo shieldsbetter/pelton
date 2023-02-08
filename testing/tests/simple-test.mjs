@@ -31,5 +31,15 @@ test('basic configuration', async t => {
     t.truthy(env.resources['pltn-root-test-a'].ConfigMap['dep1-default-a-cm']);
     t.truthy(env.resources['pltn-root-test-a'].ConfigMap['dep2-foo-b-cm']);
     t.truthy(env.resources['pltn-root-test-a'].ConfigMap['dep2-foo-a-cm']);
+
+    const depRes = env.resources['pltn-root-test-a'];
+
+    t.is(depRes.ConfigMap['dep1-default-a-cm'].data.peltonBres,
+            '(BUILD dep1 BUILD)');
+    t.is(depRes.ConfigMap['dep2-foo-b-cm'].data.peltonBres,
+            '(BUILD dep2 BUILD)');
+    t.is(depRes.ConfigMap['dep2-foo-a-cm'].data.peltonBres,
+            '(BUILD dep2 BUILD)');
+
     t.is(env.resourceCt, 4);
 });

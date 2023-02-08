@@ -13,7 +13,7 @@ const templates = {
                             metadata:
                               name: ${name}-$PELTON_ENVIRONMENT-$PELTON_ISOLATION-cm
                             data:
-                              foo: bar
+                              peltonBres: \"($PELTON_BRES)\"
                         "`,
                         peltonDependencies: envSpec.map(([dir, env, iso]) => ({
                             printProjectDirectory: `echo ${dir}`,

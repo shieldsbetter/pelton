@@ -1,6 +1,12 @@
 import cliclopts from 'cliclopts';
 import fs from 'fs';
 import minimist from 'minimist';
+import pathLib from 'path';
+
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default async function commandLevel(parentCommand, argv, commands) {
     function printCommands() {
@@ -20,7 +26,8 @@ export default async function commandLevel(parentCommand, argv, commands) {
         printCommands();
     }
     else if (argv[0] === '--version') {
-        console.log(JSON.parse(fs.readFileSync('package.json', 'utf8')).version);
+        console.log(JSON.parse(fs.readFileSync(
+            pathLib.join(__dirname, '..', 'package.json'), 'utf8')).version);
     }
     else if (!commands[argv[0]]) {
         console.error('Unknown subcommand: ' + argv[0] + '.\n');

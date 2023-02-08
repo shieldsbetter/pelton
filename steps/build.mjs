@@ -37,7 +37,7 @@ export default async function build(
                     `Building ${instanceLabel}...`, process.stderr);
 
             results[JSON.stringify(id)] =
-                    (await process).stdout.substring(-1000);
+                    (await process).stdout.trim().substring(-1000);
 
             services.debug(`### Done building ${id}`);
         });
