@@ -38,6 +38,10 @@ Vagrant.configure("2") do |config|
 
         microk8s enable dns host-access hostpath-storage ingress registry
 
+        if ! grep 'PELTON_DOCKER_REGISTRY' /etc/environment >/dev/null; then
+            echo 'PELTON_DOCKER_REGISTRY=localhost:32000' >> /etc/environment
+        fi
+
         usermod -a -G microk8s vagrant
         chown -f -R vagrant ~/.kube
 
@@ -47,7 +51,7 @@ Vagrant.configure("2") do |config|
         fi
 
         if ! grep 'KUBECTL_CMD' /etc/environment >/dev/null; then
-            echo 'KUBECTL_CMD=microk8s kubectl' > /etc/environment
+            echo 'KUBECTL_CMD=microk8s kubectl' >> /etc/environment
         fi
 
         if [[ -z "$(getent group docker)" ]]; then
