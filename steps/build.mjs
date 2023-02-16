@@ -23,9 +23,13 @@ export default async function build(
             return;
         }
 
-        const process = services.executor(
-            config.environments[id[1]].variables || {}
-        ).cd(projectDirectory).andThen().eval(buildCommand).run();
+        const process = services.executor({
+            PELTON_ENVIRONMENT: env,
+            PELTON_ISOLATION: iso,
+
+            ...(config.environments[id[1]].variables || {})
+        })
+        .cd(projectDirectory).andThen().eval(buildCommand).run();
 
         process.stderr.pause();
 
