@@ -58,12 +58,5 @@ Vagrant.configure("2") do |config|
             groupadd docker
         fi
         usermod -aG docker vagrant
-
-        until curl \
-                --fail-with-body \
-                -X GET http://localhost:32000/v2/ &>/dev/null; do
-
-            sleep 1000
-        done
     SCRIPT
 end

@@ -43,3 +43,59 @@ test('basic configuration', async t => {
 
     t.is(env.resourceCt, 4);
 });
+
+test('variables default', async t => {
+    const env = testEnvironment(t, {
+        '/pelton.cson': `
+            variables: {
+                FOO: 'fooval',
+                BAR: 'barval'
+            }
+
+            environments: {
+                default: {
+                    variables: {
+                        BAR: 'defaultBar'
+                    }
+                }
+            }
+        `
+    });
+
+    await env.call(['variables']);
+
+    await env.services.stdout.waitForFinish();
+
+    t.is(env.services.stdout.getOutput().trim(), [
+        'FOO=fooval',
+        'BAR=defaultBar'
+    ].join('\n'));
+});
+
+test('variables non-default', async t => {
+    const env = testEnvironment(t, {
+        '/pelton.cson': `
+            variables: {
+                FOO: 'fooval',
+                BAR: 'barval'
+            }
+
+            environments: {
+                otherEnv: {
+                    variables: {
+                        BAR: 'otherEnvBar'
+                    }
+                }
+            }
+        `
+    });
+
+    await env.call(['variables'], '--environment', 'otherEnv');
+
+    await env.services.stdout.waitForFinish();
+
+    t.is(env.services.stdout.getOutput().trim(), [
+        'FOO=fooval',
+        'BAR=otherEnvBar'
+    ].join('\n'));
+});

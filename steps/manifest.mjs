@@ -1,3 +1,4 @@
+import getVariables from '../utils/get-variables.mjs';
 import inDependencyOrder from '../utils/in-dependency-order.mjs';
 import yamlLib from 'js-yaml';
 
@@ -27,7 +28,8 @@ export default async function manifest(targetDir, env = 'default',
             PELTON_BRES: buildResults[JSON.stringify(id)],
             PELTON_ENVIRONMENT: id[1],
             PELTON_ISOLATION: id[2],
-            ...(config.environments[id[1]].variables || {})
+
+            ...getVariables(services, config, id[1])
         };
 
         for (let i = 0; i < dependencies.length; i++) {

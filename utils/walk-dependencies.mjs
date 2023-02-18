@@ -1,12 +1,10 @@
-import cson from 'cson';
-import pathLib from 'path';
 import ConfigError from './config-error.mjs';
+import getConfig from './get-config.mjs';
+import pathLib from 'path';
 
 export default async function walkDependencies(
         dir, env, iso, services, fns, path = [], cache = {}) {
-    const configFilename = pathLib.join(dir, 'pelton.cson');
-    const rawConfig = await services.fs.readFileSync(configFilename, 'utf8');
-    const config = cson.parse(rawConfig);
+    const config = getConfig(services, dir);
 
     const instanceId = [config.dnsName, env, iso];
     const stringifiedInstanceId = JSON.stringify(instanceId);

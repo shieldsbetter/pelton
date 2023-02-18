@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import getVariables from '../utils/get-variables.mjs';
 import yaml from 'js-yaml';
 
 import { get } from 'lodash-es';
@@ -94,7 +95,7 @@ export default async function start(
             }
 
             const podSelector = (await services.executor(
-                targetConfig.environments[targetId[1]].variables || {}
+                getVariables(services, targetConfig, targetId[1])
             ).eval('echo', targetConfig.environments[targetId[1]].podSelector).run())
             .stdout.trim();
 

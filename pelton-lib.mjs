@@ -8,6 +8,7 @@ import executor from './utils/executor.mjs';
 import * as fsLib from 'fs';
 import generateServiceIngresses from './plugins/generate-service-ingresses.mjs';
 import getStdin from 'get-stdin';
+import getVariables from './utils/get-variables.mjs';
 import manifest from './steps/manifest.mjs';
 import minimist from 'minimist';
 import pathLib from 'path';
@@ -147,6 +148,21 @@ export default async function pelton(argv, services) {
                 await start(
                         buildStepResults, args.targetNamespace, yaml, args,
                         services);
+            }
+        ],
+        variables: [
+            '[target-directory]',
+            'print environment variables',
+            buildArgs,
+            async (args, cliError) => {
+                services = instrumentServices(args, services);
+                const [targetDir = services.pwd] = args._;
+                const vars =
+                        getVariables(services, targetDir, args.environment);
+
+                for (const [key, value] of Object.entries(vars)) {
+                    services.stdout.write(`${key}=${zx.quote(value)}\n`);
+                }
             }
         ]
     });

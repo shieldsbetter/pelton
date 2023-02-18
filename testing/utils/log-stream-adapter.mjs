@@ -1,33 +1,58 @@
 import { Writable } from 'stream';
 
 export default function logToStream(log) {
+	// new Writeable() seems to do something spooky with `this`, so let's just
+	// use a closure for our state.
+	let lines = [];
+	let lineCache = '';
+
 	const w = new Writable({
 		construct(cb) {
-			this.lines = [];
-			this.lineCache = '';
 			cb();
 		},
 
 		write(chunk, encoding, cb) {
-			const lines = chunk.toString('utf8').split('\n');
+			const newLines = chunk.toString('utf8').split('\n');
 
-			this.lineCache += lines[0];
+			lineCache += newLines[0];
 
-			for (const line of lines.slice(1)) {
-				this.lines.push(this.lineCache);
-				this.lineCache = line;
+			for (const line of newLines.slice(1)) {
+				lines.push(lineCache);
+				lineCache = line;
 			}
 
 			cb();
 		},
 
 		destroy() {
-			this.lines.push(this.lineCache);
+			lines.push(lineCache);
 		}
 	});
 
+	w.waitForFinish = async () => {
+		w.end();
+
+		if (w.writableFinished) {
+			return;
+		}
+
+		await new Promise(r => w.on('finish', r));
+	}
+
+	w.getOutput = function() {
+		w.end();
+
+		let result = '';
+		for (const line of lines) {
+			result += line + '\n';
+		}
+		return result;
+	};
+
 	w.testFailedPrintLogs = function() {
-		for (const line of this.lines) {
+		w.end();
+
+		for (const line of lines) {
 			log(line);
 		}
 	};

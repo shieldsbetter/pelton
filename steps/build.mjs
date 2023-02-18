@@ -1,3 +1,4 @@
+import getVariables from '../utils/get-variables.mjs';
 import inDependencyOrder from '../utils/in-dependency-order.mjs';
 
 export default async function build(
@@ -27,7 +28,7 @@ export default async function build(
             PELTON_ENVIRONMENT: env,
             PELTON_ISOLATION: iso,
 
-            ...(config.environments[id[1]].variables || {})
+            ...getVariables(services, config, id[1])
         })
         .cd(projectDirectory).andThen().eval(buildCommand).run();
 
