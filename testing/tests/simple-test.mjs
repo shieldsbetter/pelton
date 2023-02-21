@@ -99,3 +99,32 @@ test('variables non-default', async t => {
         'BAR=otherEnvBar'
     ].join('\n'));
 });
+
+test('dependency absolute', async t => {
+    const env = testEnvironment(t, {
+        '/root/pelton.cson': `
+            dnsName: 'root',
+            environments: {
+                default: {
+                    peltonDependencies: [
+                        {
+                            printProjectDirectory: 'echo /dep1'
+                        }
+                    ]
+                }
+            }
+        `,
+        '/dep1/pelton.cson': `
+            dnsName: 'dep1',
+            environments: {
+                default: {
+                    peltonDependencies: []
+                }
+            }
+        `
+    });
+
+    await env.call(['build'], '/root');
+
+    t.pass('did not throw an error');
+});

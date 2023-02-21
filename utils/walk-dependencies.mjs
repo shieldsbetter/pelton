@@ -52,7 +52,7 @@ export default async function walkDependencies(
             catch (e) {
                 if ('stdout' in e) {
                     const e2 = new ConfigError(`"environments.${env}[${depName}].printProjectDirectory" returned a non-zero exit code`);
-                    e2.appendParent(configFilename, instanceId.join('.'));
+                    e2.appendParent(`${dir}/pelton.cson`, instanceId.join('.'));
                     throw e2;
                 }
                 else {
@@ -62,13 +62,14 @@ export default async function walkDependencies(
 
             let depConfig;
             try {
-                depConfig = await walkDependencies(pathLib.join(dir, depDir),
+                depConfig = await walkDependencies(
+                        pathLib.resolve(dir, depDir),
                         depEnv, depIso, services, fns,
                         path.concat([instanceId]), cache);
             }
             catch (e) {
                 if (e instanceof ConfigError) {
-                    e.appendParent({ filename: configFilename, instanceId });
+                    e.appendParent(`${dir}/pelton.cson`, instanceId.join('.'));
                 }
 
                 throw e;
