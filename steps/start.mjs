@@ -39,7 +39,7 @@ export default async function start(
                 .pipe().kubectl('apply',
                         '--selector', `com-shieldsbetter-pelton-root-instance=${targetId[0]}.${targetId[1]}.${targetId[2]}`,
                         '--prune',
-                        '-f', '-').run().stdout);
+                        '-f', '-').run(), 'stdout');
 
     if (!options.detach) {
         let sigintOnce = false;
@@ -113,6 +113,7 @@ export default async function start(
 
             process.on('SIGINT', shutdown);
 
+            let lastLogHeading;
             await Promise.all((await getPods('status.phase=Running', podSelector))
                     .map((podName, i) => {
                 const stdoutColor = podColors[(i * 2) % podColors.length];
@@ -121,10 +122,20 @@ export default async function start(
                 const running = services.executor({}, () => 'trap \'\' INT')
                         .kubectl('logs', '--follow', podName).run();
                 running.stdout.on('data', d => {
-                    log(stdoutColor(`${podName} out> ` + d));
+                    const logHeading = `${podName} out> `;
+                    const maybeLogHeading =
+                            lastLogHeading === logHeading ? '' : logHeading;
+                    lastLogHeading = logHeading;
+
+                    log(stdoutColor(maybeLogHeading + d));
                 });
                 running.stderr.on('data', d => {
-                    log(stderrColor(`${podName} err> ` + d));
+                    const logHeading = `${podName} err> `;
+                    const maybeLogHeading =
+                            lastLogHeading === logHeading ? '' : logHeading;
+                    lastLogHeading = logHeading;
+
+                    log(stderrColor(maybeLogHeading + d));
                 });
 
                 return running;

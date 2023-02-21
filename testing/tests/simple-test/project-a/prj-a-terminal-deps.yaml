@@ -1,9 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prj-a-cm
-data:
-  stuff: >-
-    {{PELTON_BRES}}
-    {{PRJ_A_FOO}}
-    {{PRJ_A_BAR}}

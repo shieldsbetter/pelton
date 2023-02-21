@@ -4,10 +4,20 @@ import { createLogUpdate } from 'log-update';
 
 export default function buildTaskLogger(outStream, tty = true) {
 
-    return async (title, inStream) => {
+    return async (title, shellProcess, outField, inStream) => {
+        shellProcess.catch(e => {
+            outStream.write(
+                    `\nTask "${title}" exited with a non-zero exit code.\n`);
+            outStream.write('Output:\n');
+            for (const line of e[outField].split('\n')) {
+                outStream.write(line + '\n');
+            }
+            process.exit(1);
+        });
+
         const out = outputter(title, outStream, tty);
 
-        for await (const chunk of inStream) {
+        for await (const chunk of shellProcess[outField]) {
             out(chunk);
         }
     };

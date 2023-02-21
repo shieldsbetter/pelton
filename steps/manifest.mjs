@@ -63,7 +63,7 @@ export default async function manifest(targetDir, env = 'default',
             const instanceLabel = (config.name || config.dnsName)
                     + ' > ' + id[1] + ' > ' + id[2];
             await services.logTask(`Generating ${instanceLabel} manifest...`,
-                    printManifest.stderr);
+                    printManifest, 'stderr');
 
             try {
                 yamlLib.loadAll((await printManifest).stdout, resource => {
@@ -104,7 +104,7 @@ export default async function manifest(targetDir, env = 'default',
     for (const pluginCmd of array(plugins)) {
         const pluginRun = services.executor().echo(yaml).pipe().eval(pluginCmd).run();
         await services.logTask(
-                `Plugin "${pluginCmd}"...`, pluginRun.stderr);
+                `Plugin "${pluginCmd}"...`, pluginRun, 'stderr');
         yaml = (await pluginRun).stdout;
 
         try {

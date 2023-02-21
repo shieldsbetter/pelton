@@ -1,0 +1,11 @@
+environments: {
+	default: {
+		buildCommand: '''
+			>&2 echo 1
+			>&2 echo 2
+			>&2 echo 3
+			exit 1
+		''',
+		peltonDependencies: []
+	}
+}

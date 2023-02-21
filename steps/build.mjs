@@ -39,7 +39,7 @@ export default async function build(
             const instanceLabel = (config.name || config.dnsName)
                     + ' > ' + id[1] + ' > ' + id[2];
             await services.logTask(
-                    `Building ${instanceLabel}...`, process.stderr);
+                    `Building ${instanceLabel}...`, process, 'stderr');
 
             results[JSON.stringify(id)] =
                     (await process).stdout.trim().substring(-1000);
