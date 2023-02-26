@@ -99,3 +99,20 @@ function buildHostnames(parent, root) {
 
     return result;
 }
+
+function crossDnsNames(a1, a2, separator = '-') {
+    const result = [];
+
+    for (const el1 of a1) {
+        for (const el2 of a2) {
+            if (el2 === '') {
+                result.push(el1);
+            }
+            else {
+                result.push(`${el1}${separator}${el2}`);
+            }
+        }
+    }
+
+    return result;
+}
