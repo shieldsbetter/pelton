@@ -81,3 +81,21 @@ export default async function generateServiceIngresses(input) {
 
     return resources.map(r => yaml.dump(r)).join('\n\n...\n---\n\n');
 }
+
+function buildHostnames(parent, root) {
+    function oneLevel(dns, env, iso) {
+        let result = [dns];
+        result = crossDnsNames(result,
+                env === 'default' ? ['default', ''] : [env]);
+        return crossDnsNames(result, iso === 'a' ? ['a', ''] : [iso]);
+    }
+
+    let result = oneLevel(...JSON.parse(parent));
+
+    if (parent !== root) {
+        const rootParts = oneLevel(...JSON.parse(root));
+        result = crossDnsNames(result, rootParts, '.');
+    }
+
+    return result;
+}
