@@ -1,0 +1,21 @@
+#!/usr/bin/env zx
+
+$.verbose = false;
+
+const lastRestart = new Date(parseInt((await $`
+		stat -c %Y /var/lastCalicoRestart || echo 0`)
+		.stdout) * 1000);
+const threshold = new Date(lastRestart.valueOf() + 30000);
+
+const events =
+		JSON.parse(await $`microk8s kubectl get events --output json`).items;
+const problemEvents = events.filter(({ message }) =>
+		message?.includes('failed to setup network for sandbox')
+		&& message?.includes('Unauthorized'));
+
+if (problemEvents.some(({ lastTimestamp }) =>
+		new Date(lastTimestamp) > threshold)) {
+	console.log('calco-node restart was triggered at', new Date());
+	await $`microk8s kubectl -n kube-system delete pod -l k8s-app=calico-node`;
+	await $`sudo touch /var/lastCalicoRestart`;
+}

@@ -32,6 +32,7 @@ export default async function start(
                     .run()));
 
     const [dns, env, iso] = targetId;
+
     await services.logTask(
             `Starting ${dns} > ${env} > ${iso}...`,
             services.executor()
@@ -39,7 +40,7 @@ export default async function start(
                 .pipe().kubectl('apply',
                         '--selector', `com-shieldsbetter-pelton-root-instance=${targetId[0]}.${targetId[1]}.${targetId[2]}`,
                         '--prune',
-                        '-f', '-').run(), 'stdout');
+                        '-f', '-').run(), ['stdout', 'stderr']);
 
     if (!options.detach) {
         let sigintOnce = false;
@@ -71,7 +72,7 @@ export default async function start(
                     `Stopping ${dns} > ${env} > ${iso}...`,
                     services.executor()
                             .kubectl('delete', '-n', targetNs, ...rootResources)
-                            .run().stdout);
+                            .run(), 'stdout');
 
             for (const line of logLines) {
                 console.log(...line);
@@ -84,7 +85,6 @@ export default async function start(
             shutdown();
         }
         else {
-
             async function getPods(fieldSelector, labelSelector) {
                 return (await services.executor()
                         .kubectl('get', 'pods',
@@ -114,6 +114,21 @@ export default async function start(
             process.on('SIGINT', shutdown);
 
             let lastLogHeading;
+
+            function handleChunk(heading, colorize) {
+                return d => {
+                    if (Buffer.isBuffer(d)) {
+                        d = d.toString('utf8');
+                    }
+
+                    const maybeLogHeading =
+                            lastLogHeading === heading ? '' : heading;
+                    lastLogHeading = heading;
+
+                    log(colorize(maybeLogHeading + trimFinalNewline(d)));
+                };
+            }
+
             await Promise.all((await getPods('status.phase=Running', podSelector))
                     .map((podName, i) => {
                 const stdoutColor = podColors[(i * 2) % podColors.length];
@@ -121,25 +136,21 @@ export default async function start(
 
                 const running = services.executor({}, () => 'trap \'\' INT')
                         .kubectl('logs', '--follow', podName).run();
-                running.stdout.on('data', d => {
-                    const logHeading = `${podName} out> `;
-                    const maybeLogHeading =
-                            lastLogHeading === logHeading ? '' : logHeading;
-                    lastLogHeading = logHeading;
-
-                    log(stdoutColor(maybeLogHeading + d));
-                });
-                running.stderr.on('data', d => {
-                    const logHeading = `${podName} err> `;
-                    const maybeLogHeading =
-                            lastLogHeading === logHeading ? '' : logHeading;
-                    lastLogHeading = logHeading;
-
-                    log(stderrColor(maybeLogHeading + d));
-                });
+                running.stdout.on('data',
+                        handleChunk(`${podName} out> `, stdoutColor));
+                running.stderr.on('data',
+                        handleChunk(`${podName} err> `, stderrColor));
 
                 return running;
             }));
         }
     }
+}
+
+function trimFinalNewline(str) {
+    if (typeof str === 'string' && str.endsWith('\n')) {
+        str = str.substring(0, str.length - 2);
+    }
+
+    return str;
 }

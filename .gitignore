@@ -4,3 +4,4 @@
 
 # zx does some wacky things sometimes
 /vagrant-publish*.mjs
+/restartCalicoAsNeeded?*

@@ -36,9 +36,11 @@ export default async function walkDependencies(
                     + env);
         }
 
+        const dependencySpecs =
+                config.environments[env].peltonDependencies ?? [];
+
         const dependencies = [];
-        for (const [ depName, depSpec ]
-                of Object.entries(config.environments[env].peltonDependencies)) {
+        for (const [ depName, depSpec ] of Object.entries(dependencySpecs)) {
 
             const depEnv = depSpec.environment || 'default';
             const depIso = depSpec.isolation || 'a';

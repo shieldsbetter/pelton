@@ -58,5 +58,22 @@ Vagrant.configure("2") do |config|
             groupadd docker
         fi
         usermod -aG docker vagrant
+
+        # At least on my machine, microk8s can get into a weird state when a
+        # running vagrant box is woken up after the host machine hibernates.
+        # This manifests as new pods hanging forever in a "ContainerCreating"
+        # state while generating a bunch of
+        # "Failed to create pod sandbox...connection is unauthorized" errors.
+        # Simply restarting any calico-nodes quickly unsticks the problem. This
+        # script checks once per minute to see if there are suspicious errors
+        # since the last calico-node restart and restarts calico-nodes as
+        # needed.
+
+        if ! which zx; then
+            npm install -g zx
+        fi
+
+        echo '* * * * * root /usr/bin/env zx /vagrant/restartCalicoAsNeeded &>> /var/log/restartCalicoAsNeeded' \
+                > /etc/cron.d/restartCalicoAsNeeded
     SCRIPT
 end

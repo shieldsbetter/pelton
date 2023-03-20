@@ -62,6 +62,8 @@ export default async function generateServiceIngresses(input) {
                 representativeService.metadata.labels['com-shieldsbetter-pelton-root-instance']);
 
         for (const { service, hostname, port } of ss) {
+            console.error(`${hostname}.localhost -->`
+                    + ` ${service.metadata.name}:${port}`);
             ingress.spec.rules.push(await yaml.load(`
                 host: ${hostname}.localhost
                 http:
