@@ -19,16 +19,19 @@ export default function buildTaskLogger(outStream, tty = true) {
             await shellProcess;
         }
         catch (e) {
-            outStream.write(
-                    `\nTask "${title}" exited with a non-zero exit code.\n\n`);
+            let result =
+                    `Task "${title}" exited with a non-zero exit code.\n\n`;
 
             for (const outField of outFields) {
-                outStream.write(outField + ':\n');
+                result += outField + ':\n';
                 for (const line of e[outField].split('\n')) {
-                    outStream.write(line + '\n');
+                    result += line + '\n';
                 }
             }
-            process.exit(1);
+
+            const e2 = new Error(result);
+            e2.code = 'TASK_ERROR';
+            throw e2;
         }
     };
 }
@@ -57,16 +60,17 @@ function outputter(title, outStream, tty) {
                 splitOutput.shift();
             }
 
-            log('\n' + box(columns, title, splitOutput) + '\n');
+            log(box(columns, title, splitOutput) + '\n');
         }
 
         drawOutput();
 
         result = s => {
-            const lines = s.toString('utf8').split('\n');
+            const lines = s.toString('utf8').split('\n')
+                    .map(line => line.replace(/\t/g, '    '));
 
             if (output.length === 0) {
-                output.push(lines[0].replace(/\t/g, '    '));
+                output.push(lines[0]);
             }
             else {
                 output[output.length - 1] =
@@ -87,7 +91,7 @@ function outputter(title, outStream, tty) {
     else {
         const { columns } = terminalSize();
         outStream.write('\n' +
-                buildLine(columns, '  ╭─ ' + title + ' ', '─', '╮ ') + '\n\n');
+                buildLine(columns, '  ── ' + title + ' ', '─', '─ ') + '\n\n');
 
         result = s => outStream.write(s);
     }
@@ -119,14 +123,20 @@ function splitLine(l, w) {
 function box(width, title, lines) {
     let result = [];
 
-    result.push(buildLine(width,
-            title ? '  ╭─ ' + title + ' ' : ' ╭─', '─', '─╮ '));
-
-    for (const line of lines) {
-        result.push(buildLine(width, '  │ ' + line, ' ', '│ '));
+    if (lines.length === 0) {
+        result.push(buildLine(width,
+            title ? '  ─ ' + title + ' ' : ' ─', '─', '─ '));
     }
+    else {
+        result.push(buildLine(width,
+                title ? '  ╭─ ' + title + ' ' : ' ╭─', '─', '─╮ '));
 
-    result.push(buildLine(width, '  ╰', '─', '╯ '));
+        for (const line of lines) {
+            result.push(buildLine(width, '  │ ' + line, ' ', '│ '));
+        }
+
+        result.push(buildLine(width, '  ╰', '─', '╯ '));
+    }
 
     return result.join('\n');
 }

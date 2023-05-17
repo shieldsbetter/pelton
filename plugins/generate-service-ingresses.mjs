@@ -4,29 +4,68 @@ import { set } from 'lodash-es';
 
 const ingressAnnt = 'com.shieldsbetter.pelton/ingress';
 
-export default async function generateServiceIngresses(input) {
-    const resources = await yaml.loadAll(input);
+export default function generateServiceIngresses(input, deps) {
+    deps = {
+        stderr: process.stderr,
+        env: process.env,
+        ...deps
+    };
+
+    const resources = yaml.loadAll(input);
+
+    const domainSuffixes =
+            (deps.env.PELTON_GSI_DOMAIN_SUFFIX ?? '.localhost').split(',');
 
     const services = {};
 
     for (const r of resources) {
         const rNs = r?.metadata?.namespace || 'default';
-
         const rAnnotations = r?.metadata?.annotations || {};
+        const rName = r?.metadata?.name;
+
+        if (!rName) {
+            throw new Error('Service does not have a metadata.name field.');
+        }
 
         if (r.kind === 'Service' && rAnnotations[ingressAnnt]) {
-            const [dns, env, iso] = JSON.parse(
-                    rAnnotations['com.shieldsbetter.pelton/parentInstanceId']);
-
             if (!services[rNs]) {
                 services[rNs] = [];
             }
 
-            for (const host of rAnnotations[ingressAnnt].split(',')) {
-                const [hostnameSeed, port] = host.split(':');
-                let hostnames = buildHostnames(
-                        JSON.stringify([hostnameSeed || dns, env, iso]),
-                        rAnnotations['com.shieldsbetter.pelton/rootInstanceId']);
+            const [srcDns, srcEnv, srcIso] =
+                    rAnnotations['com.shieldsbetter.pelton/sourceActivation']
+                    .split('.');
+
+            const spec = typeof rAnnotations[ingressAnnt] === 'number'
+                    ? `${rAnnotations[ingressAnnt]}`
+                    : rAnnotations[ingressAnnt];
+            for (const host of spec.split(',')) {
+                // hostname:port is deprecated but still allowed. hostname=>port
+                // is now preferred.
+                let [dnsPrefix, port] = host.split(/(?::|=>)/);
+                if (port === undefined) {
+                    port = dnsPrefix;
+                    dnsPrefix = `${rName.replace('-', '')}-${srcEnv}-${srcIso}`;
+                }
+
+                const [rootDns, rootEnv, rootIso] =
+                        rAnnotations['com.shieldsbetter.pelton/rootActivation']
+                        .split('.');
+
+                const root = rAnnotations['com.shieldsbetter.pelton/sourceActivation']
+                        === rAnnotations['com.shieldsbetter.pelton/rootActivation'];
+
+                const dependencyFragments =
+                        (deps.env.PELTON_GSI_DEPENDENCY_FRAGMENT
+                            ?? `.${rootDns.replace('-', '')}-${rootEnv}-${rootIso}`)
+                        .split(',');
+
+                const hostnames = crossStrings(
+                        [dnsPrefix],
+                        root
+                            ? domainSuffixes
+                            : crossStrings(
+                                    dependencyFragments, domainSuffixes));
 
                 for (const hostname of hostnames) {
                     services[rNs].push({
@@ -41,16 +80,16 @@ export default async function generateServiceIngresses(input) {
 
     for (const [ns, ss] of Object.entries(services)) {
         const representativeService = ss[0].service;
-        const [rootDns, rootEnv, rootIso] = JSON.parse(
+        const [rootDns, rootEnv, rootIso] =
                 representativeService.metadata.annotations[
-                        'com.shieldsbetter.pelton/rootInstanceId']);
+                        'com.shieldsbetter.pelton/rootActivation'].split('.');
 
-        const ingress = await yaml.load(`
+        const ingress = yaml.load(`
             apiVersion: networking.k8s.io/v1
             kind: Ingress
             metadata:
                 name: ${rootDns}-${rootEnv}-${rootIso}-ingress
-                namespace: ${representativeService.metadata.namespace}
+                namespace: ${ns}
                 annotations:
                     nginx.ingress.kubernetes.io/rewrite-target: /
             spec:
@@ -58,14 +97,14 @@ export default async function generateServiceIngresses(input) {
         `);
 
         set(ingress,
-                'metadata.labels.com-shieldsbetter-pelton-root-instance',
-                representativeService.metadata.labels['com-shieldsbetter-pelton-root-instance']);
+                'metadata.labels.com-shieldsbetter-pelton-root-activation',
+                representativeService.metadata.labels['com-shieldsbetter-pelton-root-activation']);
 
         for (const { service, hostname, port } of ss) {
-            console.error(`${hostname}.localhost -->`
-                    + ` ${service.metadata.name}:${port}`);
-            ingress.spec.rules.push(await yaml.load(`
-                host: ${hostname}.localhost
+            deps.stderr.write(`${hostname} -->`
+                    + ` ${service.metadata.name}:${port}\n`);
+            ingress.spec.rules.push(yaml.load(`
+                host: ${hostname}
                 http:
                     paths:
                     - path: /
@@ -84,35 +123,12 @@ export default async function generateServiceIngresses(input) {
     return resources.map(r => yaml.dump(r)).join('\n\n...\n---\n\n');
 }
 
-function buildHostnames(parent, root) {
-    function oneLevel(dns, env, iso) {
-        let result = [dns];
-        result = crossDnsNames(result,
-                env === 'default' ? ['default', ''] : [env]);
-        return crossDnsNames(result, iso === 'a' ? ['a', ''] : [iso]);
-    }
-
-    let result = oneLevel(...JSON.parse(parent));
-
-    if (parent !== root) {
-        const rootParts = oneLevel(...JSON.parse(root));
-        result = crossDnsNames(result, rootParts, '.');
-    }
-
-    return result;
-}
-
-function crossDnsNames(a1, a2, separator = '-') {
+function crossStrings(a1, a2) {
     const result = [];
 
     for (const el1 of a1) {
         for (const el2 of a2) {
-            if (el2 === '') {
-                result.push(el1);
-            }
-            else {
-                result.push(`${el1}${separator}${el2}`);
-            }
+            result.push(`${el1}${el2}`);
         }
     }
 

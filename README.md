@@ -4,9 +4,9 @@
 
 ## What is it?
 
-Pelton modularizes your development environment so that getting your project
-running is just a one-line command--even if your project has services as
-dependencies that have transitive dependencies of their own!
+Pelton is a development environment orchestration tool that helps you ensure
+your project and all its dependencies spin up with a one line command--even if
+your dependency services have transitive dependencies of their own!
 
 Your developers can use their preferred OS and their preferred IDE, and bringing
 up the project is always just:
@@ -20,7 +20,7 @@ git clone $PROJECT . && vagrant up && vagrant ssh -c 'pelton start /vagrant'
 Pelton projects define a `pelton.cson` file that helps Pelton output a complete
 Kubernetes manifest describing the project's required runtime environment.
 Pelton projects can link to other Pelton projects as dependecies and Pelton will
-defer to those projects to bring themselves up in turn!
+defer to those projects to add their own needs to the manifest.
 
 ## Quickstart
 
@@ -45,26 +45,26 @@ Then, just drop a `pelton.cson` file into your project root:
 
 ```cson
 # Short, DNS-compatible name for your project.
-dnsName: 'myproject'
+dnsName: 'my-project'
 
-# Each environment is an independent way you can bring up your project. You
+# Each environment defines an independent way you can bring up your project. You
 # might want one environment for hacking and another for automated tests, for
 # example.
 environments: {
     # The environment named "default" will be used if no environment is
-    # specified.
+    # specified. Otherwise it isn't special!
     default: {
-        # Will be Bash `eval`'d before starting your project. A good place to
-        # build local images, etc!
-        buildCommand: 'bash build-project',
+        # Bash `eval`'d before starting your project. A good place to build
+        # docker images, etc.
+        build: 'bash build-project',
 
-        # Will be Bash `eval`'d. Should print a Kubernetes manifest to `stdout`.
-        printTerminalDependencies: 'cat my-k8s-manifest.yaml',
+        # Bash `eval`'d. Should print a Kubernetes manifest to `stdout`.
+        printProjectManifest: 'cat my-k8s-manifest.yaml',
 
         # An array of Pelton modules to be included as dependencies. Each
         # listed dependency will transitively be given an opportunity to print
         # out its own Kubernetes environment.
-        peltonDependencies: [
+        dependencies: [
             {
                 # Will be Bash `eval`'d. Should print a local directory
                 # containing a Pelton project to `stdout`.
@@ -72,7 +72,7 @@ environments: {
             }
         ],
 
-        # A pod label selector used to determine which logs to follow. See:
+        # A pod label selector used to identify the project's pods. See
         # https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/
         podSelector: 'app=my-app'
     }
@@ -88,11 +88,11 @@ vagrant ssh -c 'pelton start /vagrant'
 Your project and each of its transitive dependencies will be given an
 opportunity to build themselves, then a complete Kubernetes manifest will be
 created with all needed services. Pelton will use `kubectl` to bring up your
-project and its terminal (non-Pelton) dependencies in the `default` kubernetes
-namespace, while your project's Pelton dependencies will be isolated into a
-separate namespace. Once your project comes up, Pelton will tail its logs live
-until you press Ctrl+C, at which point your project's resources will be deleted
-(but Pelton dependencies will stick around to save time next time you start!)
+project in the `default` kubernetes namespace, while your project's dependencies
+will be isolated into a separate Pelton-controlled namespace. Once your project
+comes up, Pelton will tail its logs live until you press Ctrl+C, at which point
+your project's resources will be deleted (but dependencies will stick around to
+save time on your next start!)
 
 If you'd like to see the generated kubernetes environment without actually
 applying it, you can use the `manifest` command.
@@ -116,7 +116,7 @@ kind: Service
 metadata:
     name: my-svc
     annotations:
-        com.shieldsbetter.pelton/ingress: "foo:1234"   # <-- Add this!
+        com.shieldsbetter.pelton/ingress: "foo=>1234"   # <-- Add this!
 ```
 
 Then change your `pelton start` command to:
@@ -130,9 +130,45 @@ Pelton will automatically generate a kubernetes Ingress resource to map
 mapped to 80 in your Vagrantfile, you could then navigate to your service in
 a browser at `foo.localhost:8080`.
 
-If your project has Pelton dependencies that themselves expose their services,
-those will be available as a subdomain of your project's `dnsName`, for example,
-`somedependency.myproject.localhost:8080`.
+If you add `PELTON_GSI_DEPENDENCY_FRAGMENT` to your project's `pelton.cson`
+file, then dependency services will be available in the
+`$PELTON_GSI_DEPENDENCY_FRAGMENT.localhost` subdomain. So, a dependency service
+annotated like this:
 
-Omitting a hostname in the annotation (e.g., ":1234") will default to using the
-project's `dnsName`.
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+    name: my-dependency-service
+    annotations:
+        com.shieldsbetter.pelton/ingress: "bar=>1234"   # <-- Add this!
+```
+
+Included as a dependency of a root project like this:
+
+```cson
+variables: {
+    PELTON_GSI_DEPENDENCY_FRAGMENT: foo
+}
+
+environments: {
+    default: {
+        dependencies: [
+            { printDependencyDirectory: 'echo /my-dependency-service-folder' }
+        ]
+    }
+}
+```
+
+Will then be available at `bar.foo.localhost:8080`.
+
+Additional details of this plugin can be found in the
+[Generate Service Ingresses Plugin Documentation](./docs/generate-service-ingresses.md).
+
+## API
+
+For complete information, see the API in the following documentation:
+
+* [pelton CLI usage](./docs/pelton-cli-usage.md)
+* [pelton.cson format](./docs/pelton-cson-format.md)
+* [Vagrant box](./docs/pelton-vagrant-box.md)

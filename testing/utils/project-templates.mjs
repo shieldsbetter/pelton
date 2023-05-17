@@ -6,16 +6,16 @@ const templates = {
                 Object.entries(envs).map(([envName, envSpec]) => [
                     envName,
                     {
-                        buildCommand: `echo BUILD ${name} BUILD`,
-                        printTerminalDependencies: `echo "
+                        build: `echo BUILD ${name} BUILD`,
+                        printProjectManifest: `echo "
                             apiVersion: v1
                             kind: ConfigMap
                             metadata:
                               name: ${name}-$PELTON_ENVIRONMENT-$PELTON_ISOLATION-cm
                             data:
-                              peltonBres: \"($PELTON_BRES)\"
+                              peltonBres: \"($PELTON_BUILD_RESULT)\"
                         "`,
-                        peltonDependencies: envSpec.map(([dir, env, iso]) => ({
+                        dependencies: envSpec.map(([dir, env, iso]) => ({
                             printProjectDirectory: `echo ${dir}`,
 
                             ...(env ? { environment: env } : undefined),

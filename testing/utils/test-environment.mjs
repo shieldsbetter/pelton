@@ -16,20 +16,26 @@ export default function test(t, files) {
 	    		const fileFlagIndex = args.indexOf('-f');
 	    		const fileName = args[fileFlagIndex + 1];
 
+	    		const nsIndex = args.indexOf('--namespace');
+	    		const namespace = args[nsIndex + 1];
+
 	    		if (fileFlagIndex === -1 || fileName !== '-') {
+	    			throw new Error('This apply is confusing. :(');
+	    		}
+
+	    		if (nsIndex === -1) {
 	    			throw new Error('This apply is confusing. :(');
 	    		}
 
 	    		const toApply = await yaml.loadAll(input);
 
-	    		for (const ns of Object.keys(resources)) {
-	    			for (const kind of Object.keys(resources[ns])) {
-	    				for (const resource of Object.keys(ns[kind])) {
-		    				delete resources[ns][kind][resource];
-		    				result += ` && echo Deleting ${kind} ${ns}.${resource}...`;
-	    				}
-	    			}
-	    		}
+    			for (const kind of Object.keys(resources[namespace] ?? {})) {
+					for (const resource
+							of Object.keys(resources[ns][kind])) {
+	    				delete resources[ns][kind][resource];
+	    				result += ` && echo Deleting ${kind} ${ns}.${resource}...`;
+    				}
+    			}
 
 	            for (const resource of toApply) {
 	            	if (!resources[resource.metadata.namespace]) {
@@ -88,12 +94,7 @@ export default function test(t, files) {
 
     const executor = fakeExecutorBuilder(kubectlFn, files, {});
 
-    const logStream = logStreamAdapter(t.log.bind(t));
-    t.teardown(() => {
-        if (!t.passed) {
-            logStream.testFailedPrintLogs();
-        }
-    });
+    const logStream = logStreamAdapter(t.console.log.bind(t.console));
 
     const services = {
         executor,

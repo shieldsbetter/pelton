@@ -1,10 +1,10 @@
 {
   "name": "@shieldsbetter/pelton",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "",
   "main": "pelton.js",
   "scripts": {
-    "test": "ava testing/tests/simple-test.mjs"
+    "test": "sbtest testing/tests/*.mjs"
   },
   "bin": {
     "pelton": "./pelton.mjs"
@@ -28,5 +28,10 @@
   "devDependencies": {
     "ava": "^5.1.0",
     "memfs": "^3.4.12"
+  },
+  "ava": {
+    "files": [
+      "./testing/tests/*.mjs"
+    ]
   }
 }

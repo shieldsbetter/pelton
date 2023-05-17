@@ -1,162 +1,208 @@
+import assert from 'assert';
 import fakeExecutorBuilder from '../utils/fake-executor.mjs';
-import test from 'ava';
 
-test('cd', async t => {
-	const executor = fakeExecutorBuilder(() => {}, {}, {});
+const tests = [
+	{
+		name: 'cd',
+		run: async () => {
+			const executor = fakeExecutorBuilder(() => {}, {}, {});
 
-	const result = (await executor({})
-			.eval('pwd').andThen()
-			.cd('a').andThen()
-			.eval('pwd').andThen()
-			.cd('../b').andThen()
-			.eval('pwd').andThen()
-			.cd('c').andThen()
-			.eval('pwd').andThen()
-			.cd('/d').andThen()
-			.eval('pwd')
-			.run()).stdout;
+			const result = (await executor({})
+					.eval('pwd').andThen()
+					.cd('a').andThen()
+					.eval('pwd').andThen()
+					.cd('../b').andThen()
+					.eval('pwd').andThen()
+					.cd('c').andThen()
+					.eval('pwd').andThen()
+					.cd('/d').andThen()
+					.eval('pwd')
+					.run()).stdout;
 
-	t.is(result, ['/', '/a', '/b', '/b/c', '/d'].join('\n') + '\n');
-});
+			assert.equal(
+					result,
+					['/', '/a', '/b', '/b/c', '/d'].join('\n') + '\n');
+		}
+	},
+	{
+		name: 'echo',
+		run: async () => {
+			const executor = fakeExecutorBuilder(() => {}, {}, {});
 
-test('echo', async t => {
-	const executor = fakeExecutorBuilder(() => {}, {}, {});
+			const result = (await executor({ X: 'EKS' })
+					.echo('foo', 'X=$X')
+					.run()).stdout;
 
-	const result = (await executor({ X: 'EKS' })
-			.echo('foo', 'X=$X')
-			.run()).stdout;
+			assert.equal(result, 'foo X=$X\n');
+		}
+	},
+	{
+		name: 'echo piped to kubectl',
+		run: async () => {
+			const executor = fakeExecutorBuilder((...args) => {
+				assert.deepEqual(args, [
+					'foo\n', ['bar']
+				]);
 
-	t.is(result, 'foo X=$X\n');
-});
+				return 'echo kubectl called!';
+			}, {}, {});
 
-test('echo piped to kubectl', async t => {
-	const executor = fakeExecutorBuilder((...args) => {
-		t.deepEqual(args, [
-			'foo\n', ['bar']
-		]);
+			const result = (await executor()
+					.echo('foo')
+					.pipe().kubectl('bar')
+					.run()).stdout;
 
-		return 'echo kubectl called!';
-	}, {}, {});
+			assert.equal(result, 'kubectl called!\n');
+		}
+	},
+	{
+		name: 'eval cat',
+		run: async () => {
+			const executor = fakeExecutorBuilder(() => {}, {
+				'/a': 'file a',
+				'/d1/b': 'file b'
+			}, {});
 
-	const result = (await executor()
-			.echo('foo')
-			.pipe().kubectl('bar')
-			.run()).stdout;
+			const result = (await executor({})
+					.eval('cat', 'a').andThen()
+					.eval('cat', '/d1/b').andThen()
+					.cd('d1').andThen()
+					.eval('cat', 'b').andThen()
+					.eval('cat', '/a')
+					.run()).stdout;
 
-	t.is(result, 'kubectl called!\n');
-});
+			assert.equal(
+					result,
+					['file a', 'file b', 'file b', 'file a'].join('\n') + '\n');
+		}
+	},
+	{
+		name: 'eval custom - exit 0',
+		run: async () => {
+			const executor = fakeExecutorBuilder(() => {}, {}, {
+				'custom': 'echo custom command!'
+			});
 
-test('eval cat', async t => {
-	const executor = fakeExecutorBuilder(() => {}, {
-		'/a': 'file a',
-		'/d1/b': 'file b'
-	}, {});
+			const result = (await executor({})
+					.eval('custom')
+					.run()).stdout;
 
-	const result = (await executor({})
-			.eval('cat', 'a').andThen()
-			.eval('cat', '/d1/b').andThen()
-			.cd('d1').andThen()
-			.eval('cat', 'b').andThen()
-			.eval('cat', '/a')
-			.run()).stdout;
+			assert.equal(result, 'custom command!\n');
+		}
+	},
+	{
+		name: 'eval custom - exit 1',
+		run: async () => {
+			const executor = fakeExecutorBuilder(() => {}, {}, {
+				'custom': 'echo Out of cheese! && exit 1'
+			});
 
-	t.is(result, ['file a', 'file b', 'file b', 'file a'].join('\n') + '\n');
-});
+			const error =
+					await assertRejects(executor({}).eval('custom').run());
 
-test('eval custom - exit 0', async t => {
-	const executor = fakeExecutorBuilder(() => {}, {}, {
-		'custom': 'echo custom command!'
-	});
+			assert.equal(error.stdout, 'Out of cheese!\n');
+		}
+	},
+	{
+		name: 'eval echo',
+		run: async () => {
+			const executor = fakeExecutorBuilder(() => {}, {}, {});
 
-	const result = (await executor({})
-			.eval('custom')
-			.run()).stdout;
+			const result = (await executor({ X: 'EKS' })
+					.eval('echo', 'foo', 'X=$X')
+					.run()).stdout;
 
-	t.is(result, 'custom command!\n');
-});
+			assert.equal(result, 'foo X=EKS\n');
+		}
+	},
+	{
+		name: 'eval pwd',
+		run: async () => {
+			const executor = fakeExecutorBuilder(() => {}, {}, {});
 
-test('eval custom - exit 1', async t => {
-	const executor = fakeExecutorBuilder(() => {}, {}, {
-		'custom': 'echo Out of cheese! && exit 1'
-	});
+			const result = (await executor({})
+					.eval('pwd')
+					.run()).stdout;
 
-	const error = await t.throwsAsync(executor({}).eval('custom').run());
-	t.is(error.stdout, 'Out of cheese!\n');
-});
+			assert.equal(result, '/\n');
+		}
+	},
+	{
+		name: 'kubectl - exit 0',
+		run: async () => {
+			const kubecalls = [];
+			const executor = fakeExecutorBuilder((...args) => {
+				kubecalls.push(args);
+				return 'echo kubectl called!';
+			}, {}, {});
 
-test('eval echo', async t => {
-	const executor = fakeExecutorBuilder(() => {}, {}, {});
+			const result = (await executor({})
+					.kubectl('foo', 'bar')
+					.run()).stdout;
 
-	const result = (await executor({ X: 'EKS' })
-			.eval('echo', 'foo', 'X=$X')
-			.run()).stdout;
+			assert.deepEqual(kubecalls, [
+				['', ['foo', 'bar']]
+			]);
 
-	t.is(result, 'foo X=EKS\n');
-});
+			assert.equal(result, 'kubectl called!\n');
+		}
+	},
+	{
+		name: 'kubectl - exit 1',
+		run: async () => {
+			const kubecalls = [];
+			const executor = fakeExecutorBuilder((...args) => {
+				kubecalls.push(args);
+				return 'echo kubectl failed! && exit 1';
+			}, {}, {});
 
-test('eval pwd', async t => {
-	const executor = fakeExecutorBuilder(() => {}, {}, {});
+			const error = await assertRejects(
+					executor({}).kubectl('foo', 'bar').run());
+			assert.equal(error.stdout, 'kubectl failed!\n');
 
-	const result = (await executor({})
-			.eval('pwd')
-			.run()).stdout;
+			assert.deepEqual(kubecalls, [
+				['', ['foo', 'bar']]
+			]);
+		}
+	},
+	{
+		name: 'orElse - short circuit',
+		run: async () => {
+			const executor = fakeExecutorBuilder(() => {}, {}, {});
 
-	t.is(result, '/\n');
-});
+			const result = (await executor()
+					.echo('1')
+					.orElse().echo('2')
+					.run()).stdout;
 
-test('kubectl - exit 0', async t => {
-	const kubecalls = [];
-	const executor = fakeExecutorBuilder((...args) => {
-		kubecalls.push(args);
-		return 'echo kubectl called!';
-	}, {}, {});
+			assert.equal(result, '1\n');
+		}
+	},
+	{
+		name: 'orElse - no short circuit',
+		run: async () => {
+			const executor = fakeExecutorBuilder(() => {}, {}, {
+				'custom': 'exit 1'
+			});
 
-	const result = (await executor({})
-			.kubectl('foo', 'bar')
-			.run()).stdout;
+			const result = (await executor({})
+					.eval('custom')
+					.orElse().echo('else!')
+					.run()).stdout;
 
-	t.deepEqual(kubecalls, [
-		['', ['foo', 'bar']]
-	]);
+			assert.equal(result, 'else!\n');
+		}
+	}
+];
 
-	t.is(result, 'kubectl called!\n');
-});
+async function assertRejects(pr) {
+	try {
+		const result = await pr;
+		throw new AssertionError('Resolved with: ' + util.inspect(result));
+	}
+	catch (e) {
+		return e;
+	}
+}
 
-test('kubectl - exit 1', async t => {
-	const kubecalls = [];
-	const executor = fakeExecutorBuilder((...args) => {
-		kubecalls.push(args);
-		return 'echo kubectl failed! && exit 1';
-	}, {}, {});
-
-	const error = await t.throwsAsync(executor({}).kubectl('foo', 'bar').run());
-	t.is(error.stdout, 'kubectl failed!\n');
-
-	t.deepEqual(kubecalls, [
-		['', ['foo', 'bar']]
-	]);
-});
-
-test('orElse - short cicuit', async t => {
-	const executor = fakeExecutorBuilder(() => {}, {}, {});
-
-	const result = (await executor()
-			.echo('1')
-			.orElse().echo('2')
-			.run()).stdout;
-
-	t.is(result, '1\n');
-});
-
-test('orElse - no short cicuit', async t => {
-	const executor = fakeExecutorBuilder(() => {}, {}, {
-		'custom': 'exit 1'
-	});
-
-	const result = (await executor({})
-			.eval('custom')
-			.orElse().echo('else!')
-			.run()).stdout;
-
-	t.is(result, 'else!\n');
-});
+export default tests;

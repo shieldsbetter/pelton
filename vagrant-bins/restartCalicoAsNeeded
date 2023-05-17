@@ -15,7 +15,7 @@ const problemEvents = events.filter(({ message }) =>
 
 if (problemEvents.some(({ lastTimestamp }) =>
 		new Date(lastTimestamp) > threshold)) {
-	console.log('calco-node restart was triggered at', new Date());
+	console.log('calico-node restart was triggered at', new Date());
 	await $`microk8s kubectl -n kube-system delete pod -l k8s-app=calico-node`;
 	await $`sudo touch /var/lastCalicoRestart`;
 }

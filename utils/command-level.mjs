@@ -65,13 +65,20 @@ export default async function commandLevel(parentCommand, argv, commands) {
                 await commands[argv[0]][3](args, buildCliError);
             }
             catch (e) {
-                if (e.code !== 'CLI_ERROR') {
-                    throw e;
+                if (e.code === 'TASK_ERROR') {
+                    console.error(e.message);
+                    process.exitCode = 1;
                 }
-
-                console.error(e.message);
-                printUsage();
-                process.exitCode = 1;
+                else if (e.code === 'CLI_ERROR') {
+                    console.error(e.message);
+                    printUsage();
+                    process.exitCode = 1;
+                }
+                else {
+                    const e2 = new Error(e.message);
+                    e2.cause = e;
+                    throw e2;
+                }
             }
         }
     }

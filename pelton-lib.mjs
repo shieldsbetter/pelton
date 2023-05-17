@@ -46,17 +46,17 @@ const buildArgs = [
         abbr: 'i',
         help: 'target project isolation key',
         default: 'a'
-    }
-];
-
-const manifestArgs = [
-    ...buildArgs,
+    },
     {
         name: 'targetNamespace',
         abbr: 'n',
         help: 'namespace for target project resources',
         default: 'default'
-    },
+    }
+];
+
+const manifestArgs = [
+    ...buildArgs,
     {
         name: 'plugin',
         abbr: 'p',
@@ -79,6 +79,7 @@ export default async function pelton(argv, services) {
     services = {
         executor: executor(),
         fs: fsLib,
+        peltonRunId: randomId(),
         pwd: process.cwd(),
         stderr: process.stderr,
         stdout: process.stdout,
@@ -87,8 +88,6 @@ export default async function pelton(argv, services) {
     };
 
     const invocation = pathLib.basename(argv[1], '.mjs');
-
-    process.env.PELTON_RUN = randomId();
 
     await commandLevel(invocation, argv.slice(2), {
         build: [
@@ -171,7 +170,8 @@ export default async function pelton(argv, services) {
 async function buildStep(args, services) {
     services.debug('# Build step');
     const [targetDir = services.pwd, ...rest] = args._;
-    return await build(targetDir, args.environment, args.isolation, services);
+    return await build(targetDir, args.environment, args.isolation,
+            args.targetNamespace, services);
 }
 
 function instrumentServices(args, services) {

@@ -8,12 +8,12 @@ export default async function inDependencyOrder(dir, env, iso, services, fn) {
     await walkDependencies(dir, env, iso, services, {
         post: async (id, config, extras) => {
             assert(extras.dependencies.every(
-                    ([dId]) => !!ongoing[JSON.stringify(dId)]));
+                    ([dId]) => !!ongoing[dId.join('.')]));
             const dependencyResults = await Promise.all(extras.dependencies
-                    .map(([dId]) => ongoing[JSON.stringify(dId)]));
+                    .map(([dId]) => ongoing[dId.join('.')]));
 
             last = Promise.resolve(fn(id, config, dependencyResults, extras));
-            ongoing[JSON.stringify(id)] = last;
+            ongoing[id.join('.')] = last;
         }
     });
 

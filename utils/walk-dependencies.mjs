@@ -1,5 +1,6 @@
 import ConfigError from './config-error.mjs';
 import getConfig from './get-config.mjs';
+import getVariables from '../utils/get-variables.mjs';
 import pathLib from 'path';
 
 export default async function walkDependencies(
@@ -7,7 +8,7 @@ export default async function walkDependencies(
     const config = getConfig(services, dir);
 
     const instanceId = [config.dnsName, env, iso];
-    const stringifiedInstanceId = JSON.stringify(instanceId);
+    const stringifiedInstanceId = instanceId.join('.');
 
     if (cache[stringifiedInstanceId]) {
         services.debug(`## Skipping ${pathToString(path.concat([instanceId]))}`
@@ -36,7 +37,7 @@ export default async function walkDependencies(
                     + env);
         }
 
-        const dependencySpecs =
+        const dependencySpecs = config.environments[env].dependencies ??
                 config.environments[env].peltonDependencies ?? [];
 
         const dependencies = [];
@@ -48,13 +49,13 @@ export default async function walkDependencies(
             let depDir;
             try {
                 depDir = (await services.executor(
-                    config.environments[env].variables || {}
+                    getVariables(services, config, env)
                 ).eval(depSpec.printProjectDirectory).run()).stdout.trim();
             }
             catch (e) {
                 if ('stdout' in e) {
                     const e2 = new ConfigError(`"environments.${env}[${depName}].printProjectDirectory" returned a non-zero exit code`);
-                    e2.appendParent(`${dir}/pelton.cson`, instanceId.join('.'));
+                    e2.appendParent(`${dir}/pelton.cson`, stringifiedInstanceId);
                     throw e2;
                 }
                 else {
@@ -71,7 +72,7 @@ export default async function walkDependencies(
             }
             catch (e) {
                 if (e instanceof ConfigError) {
-                    e.appendParent(`${dir}/pelton.cson`, instanceId.join('.'));
+                    e.appendParent(`${dir}/pelton.cson`, stringifiedInstanceId);
                 }
 
                 throw e;
@@ -98,5 +99,5 @@ export default async function walkDependencies(
 }
 
 function pathToString(p) {
-    return p.map(cs => cs.join('-')).join(' > ');
+    return p.map(cs => cs.join('.')).join(' > ');
 }

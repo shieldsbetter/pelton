@@ -1,0 +1,21 @@
+#!/bin/bash
+
+COUNT=0
+until curl \
+		--fail-with-body \
+		-X GET \
+		"$PELTON_DOCKER_REGISTRY/v2/" \
+		&>/dev/null; do
+
+	if [[ "$COUNT" == "1" ]]; then
+		echo "Waiting for docker registry at $PELTON_DOCKER_REGISTRY to be ready..."
+		echo '(This can take quite a while immediately after a `vagrant up`.)'
+	fi
+
+	sleep 2
+	COUNT=$((COUNT + 1))
+done
+
+if [[ "$COUNT" != "0" ]]; then
+	echo "Ready!"
+fi

@@ -1,3 +1,4 @@
+import buildBaseEnvironment from '../utils/build-base-environment.mjs';
 import chalk from 'chalk';
 import getVariables from '../utils/get-variables.mjs';
 import yaml from 'js-yaml';
@@ -16,14 +17,22 @@ const podColors = [
 
 export default async function start(
         { targetId, targetConfig }, targetNs, rawManifest, options, services) {
-    const targetIdString = JSON.stringify(targetId);
-
     const resources = await yaml.loadAll(rawManifest);
+    const resourcesByNamespace = {};
 
-    const requiredNamespaces = [...resources.reduce((accum, val) => {
-        accum.add(val.metadata?.namespace || 'default');
-        return accum;
-    }, new Set())].filter(r => r !== 'default');
+    for (const r of resources) {
+        const ns = r.metadata?.namespace ?? 'default';
+        r.metadata.namespace = ns;
+
+        if (!resourcesByNamespace[ns]) {
+            resourcesByNamespace[ns] = [];
+        }
+
+        resourcesByNamespace[ns].push(r);
+    }
+
+    const requiredNamespaces =
+            Object.keys(resourcesByNamespace).filter(r => r !== 'default');
 
     await Promise.all(requiredNamespaces
             .map(ns => services.executor()
@@ -33,14 +42,43 @@ export default async function start(
 
     const [dns, env, iso] = targetId;
 
-    await services.logTask(
-            `Starting ${dns} > ${env} > ${iso}...`,
-            services.executor()
-                .echo(rawManifest)
-                .pipe().kubectl('apply',
-                        '--selector', `com-shieldsbetter-pelton-root-instance=${targetId[0]}.${targetId[1]}.${targetId[2]}`,
-                        '--prune',
-                        '-f', '-').run(), ['stdout', 'stderr']);
+    // This is the current --purge default allow list, minus the non-namespaced
+    // resources. Using this shuts up the deprecation warning. :)
+    const purgeKinds = [
+        'core/v1/ConfigMap',
+        'core/v1/Endpoints',
+        'core/v1/PersistentVolumeClaim',
+        'core/v1/Pod',
+        'core/v1/ReplicationController',
+        'core/v1/Secret',
+        'core/v1/Service',
+        'batch/v1/Job',
+        'batch/v1/CronJob',
+        'networking.k8s.io/v1/Ingress',
+        'apps/v1/DaemonSet',
+        'apps/v1/Deployment',
+        'apps/v1/ReplicaSet',
+        'apps/v1/StatefulSet'
+    ];
+
+    for (const [ns, rs] of Object.entries(resourcesByNamespace)) {
+        const nsManifest = rs.map(r => yaml.dump(r)).join('\n...\n---\n');
+
+        await services.logTask(
+                `Starting namespace ${ns} for ${dns}.${env}.${iso}...`,
+                services.executor()
+                    .echo(nsManifest)
+                    .pipe().kubectl('apply',
+                            '--namespace', ns,
+                            ...(
+                                purgeKinds.map(k => [
+                                    '--prune-allowlist', k
+                                ]).flat()
+                            ),
+                            '--selector', `com-shieldsbetter-pelton-root-activation=${dns}.${env}.${iso}`,
+                            '--prune',
+                            '-f', '-').run(), ['stdout', 'stderr']);
+    }
 
     if (!options.detach) {
         let sigintOnce = false;
@@ -64,12 +102,12 @@ export default async function start(
             logPause = true;
 
             const rootResources = resources.filter(r =>
-                    get(r, ['metadata', 'annotations', 'com.shieldsbetter.pelton/parentInstanceId'])
-                    === JSON.stringify(targetId))
+                    get(r, ['metadata', 'annotations', 'com.shieldsbetter.pelton/sourceActivation'])
+                    === targetId.join('.'))
                     .map(r => `${r.kind}/${r.metadata.name}`);
 
             await services.logTask(
-                    `Stopping ${dns} > ${env} > ${iso}...`,
+                    `Stopping ${targetId.join('.')}...`,
                     services.executor()
                             .kubectl('delete', '-n', targetNs, ...rootResources)
                             .run(), 'stdout');
@@ -94,9 +132,13 @@ export default async function start(
                         .run()).stdout.split(' ').filter(e => e !== '');
             }
 
-            const podSelector = (await services.executor(
-                getVariables(services, targetConfig, targetId[1])
-            ).eval('echo', targetConfig.environments[targetId[1]].podSelector).run())
+            const [,,baseEnv] = buildBaseEnvironment(
+                    targetId, targetId, targetNs, services.peltonRunId);
+
+            const podSelector = (await services.executor({
+                ...baseEnv,
+                ...getVariables(services, targetConfig, targetId[1])
+            }).eval('echo', targetConfig.environments[targetId[1]].podSelector).run())
             .stdout.trim();
 
             console.log('Waiting for at least one pod...');
@@ -149,7 +191,7 @@ export default async function start(
 
 function trimFinalNewline(str) {
     if (typeof str === 'string' && str.endsWith('\n')) {
-        str = str.substring(0, str.length - 2);
+        str = str.substring(0, str.length - 1);
     }
 
     return str;

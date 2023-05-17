@@ -73,6 +73,9 @@ export default function fakeExecutor(kubectlFn, files, evalCmds = {}) {
             		resume() {},
             		async *[Symbol.asyncIterator]() {
             			yield (await runPromise).stdout;
+					},
+					on(event, fn) {
+						runPromise.then(r => fn(Buffer.from(r.stdout)));
 					}
             	};
 
@@ -81,6 +84,9 @@ export default function fakeExecutor(kubectlFn, files, evalCmds = {}) {
             		resume() {},
             		async *[Symbol.asyncIterator]() {
             			yield (await runPromise).toString();
+					},
+					on(event, fn) {
+						runPromise.then(r => fn(Buffer.from(r.stdout)));
 					}
             	};
 
@@ -189,6 +195,7 @@ export default function fakeExecutor(kubectlFn, files, evalCmds = {}) {
             	if (!lastSuccess) {
             		const e = new Error();
             		e.stdout = outputBuffer + lastCmdOutput;
+            		e.stderr = outputBuffer + lastCmdOutput;
             		e.toString = () => outputBuffer + lastCmdOutput;
             		throw e;
             	}

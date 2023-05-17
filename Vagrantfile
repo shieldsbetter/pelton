@@ -54,10 +54,18 @@ Vagrant.configure("2") do |config|
             echo 'KUBECTL_CMD=microk8s kubectl' >> /etc/environment
         fi
 
+        if ! grep '/pelton-project-extensions/bin' /etc/environment> /dev/null; then
+            sed \
+                's|^PATH=\(.*\)$|PATH=\1:/pelton-project-extensions/bin|g' \
+                -i /etc/environment
+        fi
+
         if [[ -z "$(getent group docker)" ]]; then
             groupadd docker
         fi
         usermod -aG docker vagrant
+
+        install -m 755 /vagrant/vagrant-bins/* /usr/bin
 
         # At least on my machine, microk8s can get into a weird state when a
         # running vagrant box is woken up after the host machine hibernates.
@@ -73,7 +81,8 @@ Vagrant.configure("2") do |config|
             npm install -g zx
         fi
 
-        echo '* * * * * root /usr/bin/env zx /vagrant/restartCalicoAsNeeded &>> /var/log/restartCalicoAsNeeded' \
+        echo '* * * * * root /usr/bin/env zx /usr/bin/restartCalicoAsNeeded \
+                &>> /var/log/restartCalicoAsNeeded' \
                 > /etc/cron.d/restartCalicoAsNeeded
     SCRIPT
 end

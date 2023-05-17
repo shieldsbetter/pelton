@@ -1,8 +1,11 @@
+import buildBaseEnvironment from '../utils/build-base-environment.mjs';
 import getVariables from '../utils/get-variables.mjs';
 import inDependencyOrder from '../utils/in-dependency-order.mjs';
 import yamlLib from 'js-yaml';
 
 import { set } from 'lodash-es';
+
+const pltnPrefix = process.env.PELTON_DEPENDENCY_NAMESPACE_PREFIX ?? 'pltn-';
 
 export default async function manifest(targetDir, env = 'default',
         iso = 'a', { results: buildResults, targetConfig, targetId }, targetNs,
@@ -12,43 +15,30 @@ export default async function manifest(targetDir, env = 'default',
     const resources = [];
 
     await inDependencyOrder(targetDir, env, iso, services,
-            (id, config, depRes,
-                { dependencies, dependencyPath, projectDirectory }) => {
+            (id, config, depRes, {
+                dependencies, dependencyPath, projectDirectory
+            }) => {
 
         services.debug(`### Creating manifest for ${id}`);
 
         const printManifestCommand =
-                config.environments[id[1]].printTerminalDependencies;
+                config.environments[id[1]].printProjectManifest;
 
         if (!printManifestCommand) {
             return;
         }
 
-        const envVars = {
-            PELTON_BRES: buildResults[JSON.stringify(id)],
-            PELTON_ENVIRONMENT: id[1],
-            PELTON_ISOLATION: id[2],
+        const [projectNs,,baseEnv] = buildBaseEnvironment(
+                dependencyPath[0] ?? id, id, targetNs, services.peltonRunId);
 
-            ...getVariables(services, config, id[1])
+        const envVars = {
+            ...baseEnv,
+            ...getVariables(services, config, id[1]),
+            PELTON_BUILD_RESULT: buildResults[id.join('.')],
         };
 
-        for (let i = 0; i < dependencies.length; i++) {
-            const [dDns, dEnv, dIso] = dependencies[i][0];
-
-            envVars[`PELTON_BRES_DEP_${i}`] =
-                    buildResults[JSON.stringify(dependencies[i][0])];
-            envVars[`PELTON_BRES_${toEnv(dDns)}_${toEnv(dEnv)}_${toEnv(dIso)}`] =
-                    buildResults[JSON.stringify(dependencies[i][0])];
-        }
-
-        let namespace;
         if (dependencyPath.length === 0) {
-            namespace = targetNs;
-            process.env.PELTON_TARGET_ARGS = JSON.stringify(argv);
-        }
-        else {
-            const [tDns, tEnv, tIso] = dependencyPath[0];
-            namespace = `pltn-${tDns}-${tEnv}-${tIso}`;
+            envVars.PELTON_EXTRA_ARGS = JSON.stringify(argv);
         }
 
         const printManifest = services.executor(envVars)
@@ -60,28 +50,27 @@ export default async function manifest(targetDir, env = 'default',
 
         stream = stream.then(async () => {
             printManifest.stderr.resume();
-            const instanceLabel = (config.name || config.dnsName)
-                    + ' > ' + id[1] + ' > ' + id[2];
-            await services.logTask(`Generating ${instanceLabel} manifest...`,
+            const activationLabel = id.join('.');
+            await services.logTask(`Generating ${activationLabel} manifest...`,
                     printManifest, 'stderr');
 
             try {
                 yamlLib.loadAll((await printManifest).stdout, resource => {
-                    set(resource, 'metadata.namespace', namespace);
+                    set(resource, 'metadata.namespace', projectNs);
                     set(resource,
-                            'metadata.labels.com-shieldsbetter-pelton-root-instance',
+                            'metadata.labels.com-shieldsbetter-pelton-root-activation',
                             `${targetId[0]}.${targetId[1]}.${targetId[2]}`);
 
                     annotate(resource, {
-                        dependencyInstanceIds: JSON.stringify(
-                                dependencies.map(([id]) => id)),
-                        instanceEnvironmentConfig: JSON.stringify(config),
-                        parentInstanceId: JSON.stringify(id),
-                        parentInstanceDns: id[0],
-                        parentInstanceEnvironment: id[1],
-                        parentInstanceIsolation: id[2],
-                        parentInstanceProjectDirectory: projectDirectory,
-                        rootInstanceId: JSON.stringify(targetId)
+                        dependencyActivationIds: dependencies.map(
+                                ([id]) => id.join('.')).join(','),
+                        sourceProjectConfig: JSON.stringify(config),
+                        sourceActivation: id.join('.'),
+                        sourceActivationDns: id[0],
+                        sourceActivationEnvironment: id[1],
+                        sourceActivationIsolation: id[2],
+                        sourceProjectDirectory: projectDirectory,
+                        rootActivation: targetId.join('.')
                     });
 
                     resources.push(resource);
@@ -102,7 +91,8 @@ export default async function manifest(targetDir, env = 'default',
 
     let yaml = resources.map(r => yamlLib.dump(r)).join('\n\n...\n---\n\n');
     for (const pluginCmd of array(plugins)) {
-        const pluginRun = services.executor().echo(yaml).pipe().eval(pluginCmd).run();
+        const pluginRun = services.executor(envVars)
+                .echo(yaml).pipe().eval(pluginCmd).run();
         await services.logTask(
                 `Plugin "${pluginCmd}"...`, pluginRun, 'stderr');
         yaml = (await pluginRun).stdout;
@@ -141,8 +131,4 @@ function array(v) {
     }
 
     return v;
-}
-
-function toEnv(s) {
-    return s.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 }
