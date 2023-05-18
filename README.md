@@ -163,12 +163,12 @@ environments: {
 Will then be available at `bar.foo.localhost:8080`.
 
 Additional details of this plugin can be found in the
-[Generate Service Ingresses Plugin Documentation](./docs/generate-service-ingresses.md).
+[Generate Service Ingresses Plugin Documentation](https://github.com/shieldsbetter/pelton/blob/main/docs/generate-service-ingresses.md).
 
 ## API
 
 For complete information, see the API in the following documentation:
 
-* [pelton CLI usage](./docs/pelton-cli-usage.md)
-* [pelton.cson format](./docs/pelton-cson-format.md)
-* [Vagrant box](./docs/pelton-vagrant-box.md)
+* [pelton CLI usage](https://github.com/shieldsbetter/pelton/blob/main/docs/pelton-cli-usage.md)
+* [pelton.cson format](https://github.com/shieldsbetter/pelton/blob/main/docs/pelton-cson-format.md)
+* [Vagrant box](https://github.com/shieldsbetter/pelton/blob/main/docs/pelton-vagrant-box.md)
