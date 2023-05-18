@@ -115,6 +115,20 @@ for `pelton build`, with additionally:
   activation's `build` command. This can be particularly useful, for example, to
   allowing `build` to print a resulting docker image hash to later be embedded
   in the activation's manifest.
+* `PELTON_EXTRA_ARGS`: a JSON-formatted (and thus YAML-formatted) array. For
+  [dependency activations](./glossary.md#dependency-activation), this will
+  always be the empty array. However, for the
+  [root activation](./glossary.md#root-activation) it will be an array of
+  strings containing any additional command line arguments. So if
+  `pelton manifest` is invoked as:
+
+  ```shell
+  pelton manifest . foo --bar
+  ```
+
+  Then `PELTON_EXTRA_ARGS` will be `["foo","--bar"]`. Extra arguments are those
+  that appear after the specified `<root-project-directory>`, which must be
+  provided in order to provide additional arguments.
 
 ## `pelton start <root-project-directory>`
 
@@ -142,10 +156,11 @@ If `--detach` is provided or the root activation defines no `podSelector` field,
 then once the `$KUBECTL_CMD apply` command returns, `pelton start` itself will
 return, leaving all resources running.
 
-Otherwise, the Pelton will wait for at least one pod to enter the `Running`
-phase that matches the given `podSelector` and begin tailing logs. Once Pelton
-recieves SIGINT (usually Control+C) it will prune root activation resources via
-a follow-up `apply --prune`, leaving dependency activation resources running.
+Otherwise, Pelton will wait for at least one pod matching the given
+`podSelector` to enter the `Running` phase. It will then begin to tail logs.
+Once Pelton recieves SIGINT (usually Control+C) it will prune root activation
+resources via a follow-up `apply --prune`, leaving dependency activation
+resources running.
 
 Once `apply --prune` returns and all pods whose logs are being followed have
 terminated, `pelton start` will return. A second SIGINT during this shutdown

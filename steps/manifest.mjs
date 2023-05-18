@@ -40,6 +40,9 @@ export default async function manifest(targetDir, env = 'default',
         if (dependencyPath.length === 0) {
             envVars.PELTON_EXTRA_ARGS = JSON.stringify(argv);
         }
+        else {
+            envVars.PELTON_EXTRA_ARGS = '[]';
+        }
 
         const printManifest = services.executor(envVars)
                 .cd(projectDirectory)
