@@ -74,7 +74,7 @@ Only one `<subcommand>` is currently available:
 
 #### `pelton extras plugins generate-service-ingresses`
 
-See [the plugin's documentation](./pelton-cli-usage.md).
+See [the plugin's documentation](./generate-service-ingresses.md).
 
 ## `pelton manifest <root-project-directory>`
 
