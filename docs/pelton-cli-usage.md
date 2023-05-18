@@ -56,7 +56,7 @@ field in the follow shell environment:
 * `PELTON_SOURCE_ACTIVATION`: the activation id of the source activation.
 
 Additionally, any environment variables in the activation's defined
-[activation bash environment](./activations.md#activation-bash-environment) will
+[activation bash environment](./glossary.md#activation-bash-environment) will
 be available.
 
 ## `pelton extras <subcommand>`
@@ -162,5 +162,5 @@ Flags:
 * `--isolation` or `-i` - activation isolation key (default: "a")
 
 Prints the specified activation's
-[activation bash environment](#activation-bash-environment) as `KEY=VALUE` lines
-suitable to be `eval`'d.
+[activation bash environment](./glossary.md#activation-bash-environment) as
+`KEY=VALUE` lines suitable to be `eval`'d.
