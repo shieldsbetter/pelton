@@ -8,8 +8,8 @@ until curl \
 		&>/dev/null; do
 
 	if [[ "$COUNT" == "1" ]]; then
-		echo "Waiting for docker registry at $PELTON_DOCKER_REGISTRY to be ready..."
-		echo '(This can take quite a while immediately after a `vagrant up`.)'
+		1>&2 echo "Waiting for docker registry at $PELTON_DOCKER_REGISTRY to be ready..."
+		1>&2 echo '(This can take quite a while immediately after a `vagrant up`.)'
 	fi
 
 	sleep 2
@@ -17,5 +17,5 @@ until curl \
 done
 
 if [[ "$COUNT" != "0" ]]; then
-	echo "Ready!"
+	1>&2 echo "Ready!"
 fi
