@@ -1,7 +1,17 @@
 {
   "name": "@shieldsbetter/pelton",
-  "version": "0.0.17",
-  "description": "",
+  "version": "0.0.18",
+  "description": "Development environment orchestration tool.",
+  "author": "Hampton Smith",
+
+  "keywords": ["dev", "development", "devtool", "microk8s", "vagrant"],
+  "homepage": "https://github.com/shieldsbetter/pelton",
+  "repository": "github:shieldsbetter/pelton",
+  "bugs": {
+    "url": "https://github.com/shieldsbetter/pelton/issues"
+  },
+  "license": "ISC",
+
   "main": "pelton.js",
   "scripts": {
     "test": "sbtest testing/tests/*.mjs"
@@ -9,8 +19,6 @@
   "bin": {
     "pelton": "./pelton.mjs"
   },
-  "author": "",
-  "license": "ISC",
   "type": "module",
   "dependencies": {
     "chalk": "^5.2.0",
