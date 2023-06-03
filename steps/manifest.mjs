@@ -92,6 +92,15 @@ export default async function manifest(targetDir, env = 'default',
         return stream;
     });
 
+    const [,,baseEnv] = buildBaseEnvironment(
+            targetId, targetId, targetNs, services.peltonRunId);
+
+    const envVars = {
+        ...baseEnv,
+        ...getVariables(services, targetConfig, targetId[1]),
+        PELTON_BUILD_RESULT: buildResults[targetId.join('.')],
+    };
+
     let yaml = resources.map(r => yamlLib.dump(r)).join('\n\n...\n---\n\n');
     for (const pluginCmd of array(plugins)) {
         const pluginRun = services.executor(envVars)

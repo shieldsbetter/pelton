@@ -1,7 +1,8 @@
-/node_modules/
 /.vagrant/
+/coverage/
+/node_modules/
 /*.box
 
 # zx does some wacky things sometimes
 /vagrant-publish*.mjs
-/restartCalicoAsNeeded?*
+/vagrant-bins/restartCalicoAsNeeded?*
