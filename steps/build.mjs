@@ -13,7 +13,7 @@ export default async function build(
     let targetId;
     let targetConfig;
     await inDependencyOrder(targetDir, env, iso, services,
-            (id, config, depRes, { dependencyPath, projectDirectory }) => {
+            async (id, config, depRes, { dependencyPath, projectDirectory }) => {
         services.debug(`### Building ${id}`);
 
         if (dependencyPath.length === 0) {
@@ -33,7 +33,7 @@ export default async function build(
 
         const process = services.executor({
             ...baseEnv,
-            ...getVariables(services, config, id[1])
+            ...await getVariables(services, config, id[1])
         })
         .cd(projectDirectory).andThen().eval(buildCommand).run();
 

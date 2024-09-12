@@ -5,7 +5,9 @@ import pathLib from 'path';
 
 export default async function walkDependencies(
         dir, env, iso, services, fns, path = [], cache = {}) {
-    const config = getConfig(services, dir);
+    const config = typeof dir === 'string'
+            ? getConfig(services, dir)
+            : dir;
 
     const instanceId = [config.dnsName, env, iso];
     const stringifiedInstanceId = instanceId.join('.');
@@ -46,33 +48,78 @@ export default async function walkDependencies(
             const depEnv = depSpec.environment || 'default';
             const depIso = depSpec.isolation || 'a';
 
-            let depDir;
-            try {
-                depDir = (await services.executor(
-                    getVariables(services, config, env)
-                ).eval(depSpec.printProjectDirectory).run()).stdout.trim();
+            let depDirOrManifest;
+            if (depSpec.printProjectManifest) {
+                if (depSpec.printProjectDirectory) {
+                    throw new ConfigError(
+                            'Dependency ' + depName + ' must specify either '
+                            + 'printProjectManifest or printProjectDirectory '
+                            + 'but not both.');
+                }
+
+                try {
+                    depDirOrManifest = (await services.executor(
+                        await getVariables(services, config, env)
+                    ).eval(depSpec.printProjectManifest).run()).stdout;
+                }
+                catch (e) {
+                    if ('stdout' in e) {
+                        const e2 = new ConfigError(
+                                `"environments.${env}[${depName}].printProjectManifest" `
+                                + `returned a non-zero exit code`);
+                        e2.appendParent(
+                                typeof dir === 'string' ? dir : null,
+                                stringifiedInstanceId);
+                        throw e2;
+                    }
+                    else {
+                        throw e;
+                    }
+                }
+
+                depDirOrManifest = getConfig(services, null, depDirOrManifest);
             }
-            catch (e) {
-                if ('stdout' in e) {
-                    const e2 = new ConfigError(`"environments.${env}[${depName}].printProjectDirectory" returned a non-zero exit code`);
-                    e2.appendParent(`${dir}/pelton.cson`, stringifiedInstanceId);
-                    throw e2;
+            else if (depSpec.printProjectDirectory) {
+                try {
+                    depDirOrManifest = (await services.executor(
+                        await getVariables(services, config, env)
+                    ).eval(depSpec.printProjectDirectory).run()).stdout.trim();
                 }
-                else {
-                    throw e;
+                catch (e) {
+                    if ('stdout' in e) {
+                        const e2 = new ConfigError(
+                                `"environments.${env}[${depName}].printProjectDirectory" `
+                                + `returned a non-zero exit code`);
+                        e2.appendParent(
+                                typeof dir === 'string' ? dir : null,
+                                stringifiedInstanceId);
+                        throw e2;
+                    }
+                    else {
+                        throw e;
+                    }
                 }
+
+                depDirOrManifest = pathLib.resolve(dir, depDirOrManifest);
+            }
+            else {
+                throw new ConfigError('One of printProjectManifest or '
+                        + 'printProjectDirectory required for dependency '
+                        + depName);
             }
 
             let depConfig;
             try {
                 depConfig = await walkDependencies(
-                        pathLib.resolve(dir, depDir),
+                        depDirOrManifest,
                         depEnv, depIso, services, fns,
                         path.concat([instanceId]), cache);
             }
             catch (e) {
                 if (e instanceof ConfigError) {
-                    e.appendParent(`${dir}/pelton.cson`, stringifiedInstanceId);
+                    e.appendParent(
+                            typeof dir === 'string' ? dir : null,
+                            stringifiedInstanceId);
                 }
 
                 throw e;

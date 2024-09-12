@@ -138,6 +138,35 @@ const tests = [
 
             await env.call(['build'], '/root');
         }
+    },
+    {
+        name: 'printPeltonManifest',
+        run: async t => {
+            const env = testEnvironment(t, {
+                '/root/pelton.cson': `
+                    dnsName: 'root',
+                    environments: {
+                        default: {
+                            peltonDependencies: [
+                                {
+                                    printProjectManifest: 'cat /root/something.cson'
+                                }
+                            ]
+                        }
+                    }
+                `,
+                '/root/something.cson': `
+                    dnsName: 'dep1',
+                    environments: {
+                        default: {
+                            peltonDependencies: []
+                        }
+                    }
+                `
+            });
+
+            await env.call(['build'], '/root');
+        }
     }
 ];
 

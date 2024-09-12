@@ -156,8 +156,8 @@ export default async function pelton(argv, services) {
             async (args, cliError) => {
                 services = instrumentServices(args, services);
                 const [targetDir = services.pwd] = args._;
-                const vars =
-                        getVariables(services, targetDir, args.environment);
+                const vars = await getVariables(
+                        services, targetDir, args.environment);
 
                 for (const [key, value] of Object.entries(vars)) {
                     services.stdout.write(`${key}=${zx.quote(value)}\n`);

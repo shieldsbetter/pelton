@@ -1,9 +1,12 @@
 import cson from 'cson';
 import pathLib from 'path';
 
-export default function getConfig(services, dir) {
-    const configFilename = pathLib.join(dir, 'pelton.cson');
-    const rawConfig = services.fs.readFileSync(configFilename, 'utf8');
+export default function getConfig(services, dir, rawConfig) {
+    if (rawConfig === undefined) {
+        const configFilename = pathLib.join(dir, 'pelton.cson');
+        rawConfig = services.fs.readFileSync(configFilename, 'utf8');
+    }
+    
     const parsed = cson.parse(rawConfig);
 
     if (parsed instanceof Error) {

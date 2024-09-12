@@ -39,12 +39,18 @@ The value of each entry should itself be a map with the following fields:
       dependency activation. Default: `default`.
     * `isolation` - (Optional.) The named activation isolation to be used for
       the dependency activation. Default: `a`.
-    * `printProjectDirectory` - **Required.** A command to be `eval`'d to print
-      to standard out an absolute directory or directory relative to the
-      project's `pelton.cson` file where the dependency project can be found.
-      Will be `eval`'d
+    * `printProjectManifest` - A command to be `eval`'d to print to standard out
+      the complete Pelton manifest of the dependency. Will be `eval`'d in the
       [activation bash environment](./glossary.md#activation-bash-environment)
-      of the associated Pelton environment.
+      of the associated Pelton environment. Exactly one of this or
+      `printProjectDirectory` is **required**.
+    * `printProjectDirectory` - A command to be `eval`'d to print to standard
+      out an absolute directory or directory relative to the project's
+      `pelton.cson` file where the dependency project can be found. Will be
+      `eval`'d in the
+      [activation bash environment](./glossary.md#activation-bash-environment)
+      of the associated Pelton environment. Exactly one of this or
+      `printProjectManifest` is **required**.
 * `printProjectManifest` - (Optional.) A string supplying a bash command to be
   `eval`'d during the manifest phase to print the project's kubernetes resources
   to standard out, formatted as yaml. Will be `eval`'d in the bash variable

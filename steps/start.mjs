@@ -137,7 +137,7 @@ export default async function start(
 
             const podSelector = (await services.executor({
                 ...baseEnv,
-                ...getVariables(services, targetConfig, targetId[1])
+                ...await getVariables(services, targetConfig, targetId[1])
             }).eval('echo', targetConfig.environments[targetId[1]].podSelector).run())
             .stdout.trim();
 

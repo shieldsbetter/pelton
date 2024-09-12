@@ -15,7 +15,7 @@ export default async function manifest(targetDir, env = 'default',
     const resources = [];
 
     await inDependencyOrder(targetDir, env, iso, services,
-            (id, config, depRes, {
+            async (id, config, depRes, {
                 dependencies, dependencyPath, projectDirectory
             }) => {
 
@@ -33,7 +33,7 @@ export default async function manifest(targetDir, env = 'default',
 
         const envVars = {
             ...baseEnv,
-            ...getVariables(services, config, id[1]),
+            ...await getVariables(services, config, id[1]),
             PELTON_BUILD_RESULT: buildResults[id.join('.')],
         };
 
@@ -97,7 +97,7 @@ export default async function manifest(targetDir, env = 'default',
 
     const envVars = {
         ...baseEnv,
-        ...getVariables(services, targetConfig, targetId[1]),
+        ...await getVariables(services, targetConfig, targetId[1]),
         PELTON_BUILD_RESULT: buildResults[targetId.join('.')],
     };
 
